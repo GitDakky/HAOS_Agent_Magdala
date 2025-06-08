@@ -37,6 +37,7 @@ class MagdalaAgent:
     def _create_agent_executor(self) -> AgentExecutor:
         """Create the LangChain agent executor."""
         openrouter_api_key = self.entry.data.get(CONF_OPENROUTER_API_KEY)
+        perplexity_api_key = self.entry.data.get(CONF_PERPLEXITY_API_KEY)
         openrouter_model = self.entry.data.get(CONF_OPENROUTER_MODEL)
 
         # Set up the primary LLM via OpenRouter
@@ -47,15 +48,32 @@ class MagdalaAgent:
             temperature=0.7,
         )
 
+        # Set up the research LLM via Perplexity
+        research_llm = ChatPerplexity(pplx_api_key=perplexity_api_key)
+
+        @tool
+        def research_home_assistant_topic(query: str) -> str:
+            """
+            Use this tool to research how to do something in Home Assistant or to find information about integrations, configurations, or best practices.
+            The query should be a clear, specific question.
+            """
+            LOGGER.debug(f"Agent is researching topic: {query}")
+            try:
+                response = research_llm.invoke(query)
+                return response.content
+            except Exception as e:
+                LOGGER.error(f"Error during Perplexity research: {e}")
+                return f"Error during research: {e}"
+
         # Define the tools the agent can use
         tool_factory = HomeAssistantToolFactory(self.hass)
-        tools = tool_factory.get_tools()
+        tools = tool_factory.get_tools() + [research_home_assistant_topic]
 
         # Create the agent prompt
         # This is a very basic prompt and will need significant refinement.
         prompt = ChatPromptTemplate.from_messages(
             [
-                ("system", "You are a helpful Home Assistant agent named HAOS Agent Magdala. You have access to tools to interact with Home Assistant."),
+                ("system", "You are a helpful Home Assistant agent named HAOS Agent Magdala. You have access to tools to interact with Home Assistant. You can also research topics if you don't know the answer."),
                 ("human", "{input}"),
                 ("placeholder", "{agent_scratchpad}"),
             ]
