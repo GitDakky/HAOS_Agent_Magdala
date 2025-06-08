@@ -9,7 +9,6 @@ from langchain_openai import ChatOpenAI
 from langchain_perplexity import ChatPerplexity
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate
-from langchain.tools import tool
 
 from .const import (
     DOMAIN,
@@ -23,13 +22,7 @@ from .const import (
 # In a real implementation, this would need to be persisted.
 conversation_history = {}
 
-
-# Define a simple tool as a placeholder
-@tool
-def get_home_assistant_version() -> str:
-    """Returns the current version of Home Assistant."""
-    # In a real tool, we would get this from self.hass.config.version
-    return "2025.6.0" # Placeholder
+from .tools import HomeAssistantToolFactory
 
 
 class MagdalaAgent:
@@ -55,8 +48,8 @@ class MagdalaAgent:
         )
 
         # Define the tools the agent can use
-        # We will add more tools here later (e.g., for calling HA services)
-        tools = [get_home_assistant_version]
+        tool_factory = HomeAssistantToolFactory(self.hass)
+        tools = tool_factory.get_tools()
 
         # Create the agent prompt
         # This is a very basic prompt and will need significant refinement.
