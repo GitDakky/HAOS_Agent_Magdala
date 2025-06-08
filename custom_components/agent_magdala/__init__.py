@@ -5,6 +5,7 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers.typing import ConfigType
+from homeassistant.components.http import HomeAssistantView
 
 from .const import (
     DOMAIN,
@@ -12,6 +13,7 @@ from .const import (
     SERVICE_ASK_AGENT,
     ATTR_PROMPT,
     ATTR_CONVERSATION_ID,
+    NAME,
 )
 from .agent import MagdalaAgent
 
@@ -50,6 +52,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         DOMAIN, SERVICE_ASK_AGENT, handle_ask_service
     )
 
+    # Register the custom panel
+    await hass.components.panel_custom.async_register_panel(
+        frontend_url_path="agent_magdala",
+        webcomponent_name="agent-magdala-panel",
+        sidebar_title=NAME,
+        sidebar_icon="mdi:brain",
+        module_url=f"/api/hassio_ingress/{entry.entry_id}/index.html",
+        embed_iframe=True,
+        require_admin=True,
+    )
+    
+    # Register a view to serve the panel's static files
+    hass.http.register_static_path(
+        f"/api/hassio_ingress/{entry.entry_id}",
+        hass.config.path(f"custom_components/{DOMAIN}/www"),
+        cache_headers=False,
+    )
+
     return True
 
 
@@ -57,6 +77,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     # Unregister the service
     hass.services.async_remove(DOMAIN, SERVICE_ASK_AGENT)
+
+    # Unregister the panel
+    hass.components.panel_custom.async_remove_panel("agent_magdala")
 
     # Clean up the agent instance
     hass.data[DOMAIN].pop(entry.entry_id)
