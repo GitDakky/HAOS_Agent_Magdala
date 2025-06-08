@@ -1,0 +1,18 @@
+{
+  "domain": "agent_magdala",
+  "name": "HAOS Agent Magdala",
+  "version": "0.1.0",
+  "documentation": "https://github.com/GitDakky/HAOS_Agent_Magdala",
+  "issue_tracker": "https://github.com/GitDakky/HAOS_Agent_Magdala/issues",
+  "codeowners": ["@GitDakky"],
+  "config_flow": true,
+  "iot_class": "cloud_polling",
+  "integration_type": "service",
+  "requirements": [
+    "langchain==0.2.1",
+    "langchain-openai==0.1.7",
+    "langchain_community==0.2.1",
+    "langchain-perplexity==0.0.3"
+  ],
+  "loggers": ["langchain", "agent_magdala"]
+}
