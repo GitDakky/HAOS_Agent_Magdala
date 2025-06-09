@@ -1,15 +1,79 @@
 ask:
-  description: "Ask a question to Agent Magdala."
+  description: "Ask a question to the Guardian Agent."
   fields:
     prompt:
-      description: "The question or prompt for the agent."
-      example: "What is the weather in London?"
+      description: "The question or prompt for the guardian agent."
+      example: "What's the security status of the house?"
       required: true
       selector:
         text:
           multiline: true
     conversation_id:
       description: "The ID of the conversation to continue."
-      example: "12345"
+      example: "conv_12345"
       selector:
         text:
+
+guardian_mode:
+  description: "Set the Guardian Agent operation mode."
+  fields:
+    mode:
+      description: "Guardian operation mode."
+      required: true
+      selector:
+        select:
+          options:
+            - "active"
+            - "passive"
+            - "sleep"
+    modules:
+      description: "Guardian modules to enable (optional)."
+      selector:
+        select:
+          options:
+            - "security"
+            - "wellness"
+            - "energy"
+          multiple: true
+
+announce:
+  description: "Make a voice announcement through smart speakers."
+  fields:
+    message:
+      description: "Message to announce."
+      example: "Dinner is ready!"
+      required: true
+      selector:
+        text:
+          multiline: true
+    priority:
+      description: "Announcement priority level."
+      default: "low"
+      selector:
+        select:
+          options:
+            - "low"
+            - "medium"
+            - "high"
+            - "critical"
+    location:
+      description: "Target location or speaker (optional)."
+      example: "living_room"
+      selector:
+        text:
+
+learn_pattern:
+  description: "Teach the Guardian Agent a new pattern."
+  fields:
+    pattern_type:
+      description: "Type of pattern to learn."
+      example: "routine"
+      required: true
+      selector:
+        text:
+    pattern_data:
+      description: "Pattern data as JSON object."
+      example: '{"time": "07:00", "action": "morning_routine"}'
+      required: true
+      selector:
+        object:

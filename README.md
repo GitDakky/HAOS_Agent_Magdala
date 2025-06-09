@@ -1,27 +1,58 @@
-# HAOS Agent Magdala
+# HAOS Agent Magdala - AI Guardian for Your Home
 
 [![GitHub Release](https://img.shields.io/github/release/GitDakky/HAOS_Agent_Magdala.svg?style=for-the-badge)](https://github.com/GitDakky/HAOS_Agent_Magdala/releases)
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://github.com/custom-components/hacs)
 
-A Home Assistant custom integration that provides an AI-powered conversational agent for managing your smart home.
+An intelligent AI guardian agent for Home Assistant that proactively monitors your property, learns your family's patterns, and communicates through voice to keep your home secure, efficient, and comfortable.
 
-## ⚠️ Current Status (v0.3.0)
+## 🎯 Vision
 
-**Important**: The agent functionality is temporarily disabled while we resolve dependency conflicts. The integration can be installed and configured, but the AI features are not yet operational.
+Transform your Home Assistant into a **true AI guardian** that:
+- **🛡️ Monitors** your property 24/7 through sensors and cameras
+- **🧠 Learns** your family's routines and preferences with persistent memory
+- **🗣️ Communicates** proactively via voice through your smart speakers
+- **⚡ Acts** as your intelligent household companion and protector
 
-## Features (Planned)
+## ✨ Guardian Features
 
-- 🤖 AI-powered conversational interface using OpenRouter and Perplexity
-- 🏠 Direct control of Home Assistant entities and services
-- 🔍 Intelligent research capabilities for Home Assistant topics
-- 💬 Natural language processing for intuitive interactions
-- 🛠️ Extensible tool system for custom actions
+### 🛡️ Security Guardian
+- **Perimeter Monitoring**: Intelligent door/window/motion detection
+- **Visitor Management**: Smart doorbell integration and guest announcements
+- **Anomaly Detection**: Learns normal patterns, alerts on unusual activity
+- **Emergency Response**: Automated alerts and emergency protocols
+
+### 🏥 Wellness Guardian
+- **Health Monitoring**: Medication reminders and wellness checks
+- **Safety Alerts**: Environmental hazards (smoke, water, temperature)
+- **Activity Tracking**: Monitors daily routines for elderly care
+- **Emergency Detection**: Fall detection and medical alert integration
+
+### ⚡ Energy Guardian
+- **Smart Optimization**: Automated energy efficiency improvements
+- **Usage Monitoring**: Tracks and reports energy consumption patterns
+- **Cost Savings**: Schedules devices during off-peak hours
+- **Waste Detection**: Alerts about forgotten lights and appliances
+
+### 🧠 Intelligent Memory
+- **Pattern Learning**: Understands your family's daily routines
+- **Preference Storage**: Remembers temperature, lighting, and device preferences
+- **Conversation History**: Maintains context across all interactions
+- **Adaptive Behavior**: Continuously improves based on feedback
+
+## 🚀 Technology Stack
+
+- **🧠 Pydantic AI SDK**: Type-safe AI agent with structured validation
+- **💾 Mem0**: Persistent memory system for learning and context
+- **🗣️ Home Assistant TTS**: Local voice communication via smart speakers
+- **🏠 Home Assistant Core**: Native integration with all your smart devices
 
 ## Prerequisites
 
 - Home Assistant 2024.1.0 or newer
-- OpenRouter API key (for LLM access)
-- Perplexity API key (for research capabilities)
+- OpenRouter API key (for AI model access)
+- Mem0 API key (for persistent memory)
+- Smart speakers or TTS-capable devices
+- Sensors for monitoring (door/window, motion, temperature, etc.)
 
 ## Installation
 
@@ -48,76 +79,122 @@ A Home Assistant custom integration that provides an AI-powered conversational a
 2. Click **Add Integration**
 3. Search for "HAOS Agent Magdala"
 4. Enter your configuration:
-   - **OpenRouter API Key**: Your OpenRouter API key
-   - **Perplexity API Key**: Your Perplexity API key
-   - **OpenRouter Model**: (Optional) The model to use (default: `google/gemini-flash-1.5`)
+   - **OpenRouter API Key**: Your OpenRouter API key for AI model access
+   - **Mem0 API Key**: Your Mem0 API key for persistent memory
+   - **OpenRouter Model**: AI model to use (default: `google/gemini-flash-1.5`)
+   - **Guardian Mode**: Enable proactive monitoring and alerts
+   - **Voice Announcements**: Enable TTS communication via speakers
 
-## Usage
+## Guardian in Action
 
-Once configured, the integration provides:
+### 🌅 Morning Briefing
+*"Good morning, David. I've noticed you're up 30 minutes early today. I've started the coffee maker and adjusted the thermostat to 72°F. Your first meeting is at 9 AM, and traffic is light on your usual route."*
+
+### 🚨 Security Alert
+*"David, I've detected motion in the backyard at 2:15 AM. The security camera shows a raccoon near the garbage cans. I've logged this event and increased exterior lighting for the next hour."*
+
+### 💊 Wellness Check
+*"It's 8 PM and time for your evening medication. I've also noticed the air quality has dropped due to wildfire smoke. I've activated the air purifier in the bedroom."*
+
+### ⚡ Energy Optimization
+*"I've noticed the washing machine has been running during peak energy hours. I can schedule it to run at 11 PM when rates are 40% lower. Would you like me to set this up automatically?"*
+
+## Services & Events
 
 ### Service: `agent_magdala.ask`
-
-Send a prompt to the agent and receive a response via Home Assistant events.
-
+Send a prompt to the guardian agent:
 ```yaml
 service: agent_magdala.ask
 data:
-  prompt: "Turn on the living room lights"
+  prompt: "What's the security status of the house?"
   conversation_id: "optional-conversation-id"
+```
+
+### Service: `agent_magdala.guardian_mode`
+Control guardian monitoring:
+```yaml
+service: agent_magdala.guardian_mode
+data:
+  mode: "active"  # active, passive, sleep
+  modules: ["security", "wellness", "energy"]
 ```
 
 ### Events
-
-The integration fires `agent_magdala_response` events with the agent's responses:
-
-```yaml
-event_type: agent_magdala_response
-data:
-  response: "I've turned on the living room lights for you."
-  conversation_id: "optional-conversation-id"
-```
-
-## Available Tools (When Fully Operational)
-
-- **call_service**: Execute any Home Assistant service
-- **get_entity_state**: Retrieve the current state of any entity
-- **get_entities_by_domain**: List all entities in a specific domain
-- **set_entity_state**: Directly modify entity states (use with caution)
-
-## Known Issues
-
-- **v0.3.0**: Agent functionality temporarily disabled due to dependency conflicts
-- Config flow issues have been resolved in v0.3.0
+- `agent_magdala_response`: Agent responses and confirmations
+- `agent_magdala_alert`: Security and safety alerts
+- `agent_magdala_pattern`: Learned pattern notifications
 
 ## Development Roadmap
 
-- [ ] Resolve langchain dependency conflicts
-- [ ] Re-enable AI agent functionality
-- [ ] Add conversation history persistence
-- [ ] Implement web-based chat interface
-- [ ] Add support for custom tools
-- [ ] Improve error handling and logging
+### Phase 1: Foundation ✅
+- [x] Replace LangChain with Pydantic AI SDK
+- [x] Integrate Mem0 memory system
+- [x] Set up basic sensor monitoring
+- [x] Implement TTS communication
+
+### Phase 2: Guardian Behaviors 🚧
+- [ ] Security monitoring and alerts
+- [ ] Basic pattern learning
+- [ ] Proactive voice announcements
+- [ ] Energy usage tracking
+
+### Phase 3: Intelligence 📋
+- [ ] Advanced pattern recognition
+- [ ] Multi-user preferences
+- [ ] Predictive behaviors
+- [ ] Wellness monitoring
+
+### Phase 4: Refinement 📋
+- [ ] User feedback integration
+- [ ] Performance optimization
+- [ ] Advanced scenarios
+- [ ] Documentation and testing
+
+## Privacy & Security
+
+- **🔒 Local Processing**: All AI processing happens on your Home Assistant instance
+- **🚫 No Cloud Dependencies**: Optional cloud APIs only for enhanced AI models
+- **🛡️ Encrypted Storage**: All memory and preferences stored securely
+- **👥 Family Privacy**: Individual user profiles with separate data isolation
+- **🔍 Audit Trail**: Complete logging of all guardian actions and decisions
 
 ## Troubleshooting
 
-### "Config flow could not be loaded" Error
+### Guardian Not Responding
+1. Check that OpenRouter and Mem0 API keys are valid
+2. Verify TTS service is configured in Home Assistant
+3. Ensure guardian mode is enabled in integration settings
+4. Check Home Assistant logs for error messages
 
-This issue has been resolved in v0.3.0. If you're still experiencing this:
-1. Ensure you're running the latest version
-2. Clear your browser cache
-3. Restart Home Assistant completely
-
-### Agent Not Responding
-
-The agent functionality is temporarily disabled in v0.3.0. Check back for updates or watch the repository for new releases.
+### Memory Not Persisting
+1. Verify Mem0 API key and connectivity
+2. Check storage permissions in Home Assistant
+3. Review memory configuration in integration settings
 
 ## Contributing
 
-Contributions are welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Submit a pull request
+We welcome contributions to make HAOS Agent Magdala even better! Please:
+
+1. **Fork the repository** and create a feature branch
+2. **Follow the coding standards** (type hints, Pydantic models, async patterns)
+3. **Add tests** for new guardian behaviors
+4. **Update documentation** for new features
+5. **Submit a pull request** with detailed description
+
+### Development Setup
+```bash
+# Clone the repository
+git clone https://github.com/GitDakky/HAOS_Agent_Magdala.git
+
+# Install development dependencies
+pip install -r requirements-dev.txt
+
+# Run tests
+pytest tests/
+
+# Run type checking
+mypy custom_components/agent_magdala/
+```
 
 ## License
 
@@ -125,11 +202,18 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Support
 
-- [Report Issues](https://github.com/GitDakky/HAOS_Agent_Magdala/issues)
-- [Discussions](https://github.com/GitDakky/HAOS_Agent_Magdala/discussions)
+- 🐛 [Report Issues](https://github.com/GitDakky/HAOS_Agent_Magdala/issues)
+- 💬 [Discussions](https://github.com/GitDakky/HAOS_Agent_Magdala/discussions)
+- 📖 [Documentation](https://github.com/GitDakky/HAOS_Agent_Magdala/wiki)
+- 🎥 [Video Tutorials](https://github.com/GitDakky/HAOS_Agent_Magdala/wiki/tutorials)
 
 ## Acknowledgments
 
-- Built with [LangChain](https://github.com/langchain-ai/langchain)
-- Powered by [OpenRouter](https://openrouter.ai/) and [Perplexity](https://www.perplexity.ai/)
-- Inspired by the Home Assistant community
+- 🧠 Built with [Pydantic AI SDK](https://github.com/pydantic/pydantic-ai) for type-safe AI agents
+- 💾 Powered by [Mem0](https://mem0.ai/) for intelligent memory management
+- 🗣️ Integrated with [Home Assistant TTS](https://www.home-assistant.io/integrations/tts/) for voice communication
+- 🏠 Inspired by the amazing [Home Assistant](https://www.home-assistant.io/) community
+
+---
+
+**Transform your Home Assistant into an intelligent guardian that truly understands and protects your home. Welcome to the future of smart home automation! 🏠🤖**

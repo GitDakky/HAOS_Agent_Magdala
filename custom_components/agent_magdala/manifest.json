@@ -1,13 +1,18 @@
 {
   "domain": "agent_magdala",
   "name": "HAOS Agent Magdala",
-  "version": "0.3.0",
+  "version": "0.4.0-dev",
   "documentation": "https://github.com/GitDakky/HAOS_Agent_Magdala",
   "issue_tracker": "https://github.com/GitDakky/HAOS_Agent_Magdala/issues",
   "codeowners": ["@GitDakky"],
   "config_flow": true,
-  "iot_class": "cloud_polling",
+  "iot_class": "local_polling",
   "integration_type": "service",
-  "requirements": [],
-  "loggers": ["langchain", "agent_magdala"]
+  "requirements": [
+    "pydantic-ai>=0.0.14",
+    "mem0ai>=0.1.0",
+    "aiohttp>=3.8.0",
+    "pydantic>=2.0.0"
+  ],
+  "loggers": ["agent_magdala", "pydantic_ai", "mem0"]
 }
