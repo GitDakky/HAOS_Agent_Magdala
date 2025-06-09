@@ -1,0 +1,15 @@
+ask:
+  description: "Ask a question to Agent Magdala."
+  fields:
+    prompt:
+      description: "The question or prompt for the agent."
+      example: "What is the weather in London?"
+      required: true
+      selector:
+        text:
+          multiline: true
+    conversation_id:
+      description: "The ID of the conversation to continue."
+      example: "12345"
+      selector:
+        text:
