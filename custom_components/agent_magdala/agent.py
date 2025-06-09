@@ -39,31 +39,48 @@ from .const import (
     GUARDIAN_MODULES,
 )
 
-from .models import (
-    GuardianConfig,
-    GuardianStatus,
-    GuardianAlert,
-    GuardianResponse,
-    ConversationContext,
-    SecurityEvent,
-    WellnessEvent,
-    EnergyEvent,
-    DeviceState,
-)
-from .memory import GuardianMemory
-from .voice import GuardianVoice
-from .guardian import SecurityGuardian, WellnessGuardian, EnergyGuardian
+# Simplified imports to avoid dependency issues
+# from .models import (
+#     GuardianConfig,
+#     GuardianStatus,
+#     GuardianAlert,
+#     GuardianResponse,
+#     ConversationContext,
+#     SecurityEvent,
+#     WellnessEvent,
+#     EnergyEvent,
+#     DeviceState,
+# )
+# from .memory import GuardianMemory
+# from .voice import GuardianVoice
+# from .guardian import SecurityGuardian, WellnessGuardian, EnergyGuardian
 
 
-class GuardianDependencies(BaseModel):
-    """Dependencies for the Guardian Agent."""
-    hass: HomeAssistant
-    memory: GuardianMemory
-    voice: GuardianVoice
-    config: GuardianConfig
+# Simple data classes to replace complex models
+class SimpleConfig:
+    def __init__(self, data):
+        self.openrouter_api_key = data.get(CONF_OPENROUTER_API_KEY)
+        self.mem0_api_key = data.get(CONF_MEM0_API_KEY)
+        self.openrouter_model = data.get(CONF_OPENROUTER_MODEL, "google/gemini-flash-1.5")
+        self.guardian_mode = data.get(CONF_GUARDIAN_MODE, "active")
+        self.voice_announcements = data.get(CONF_VOICE_ANNOUNCEMENTS, True)
+        self.tts_service = data.get(CONF_TTS_SERVICE, "tts.piper")
+        self.enabled_modules = ["security", "wellness", "energy"]
 
-    class Config:
-        arbitrary_types_allowed = True
+class SimpleStatus:
+    def __init__(self):
+        self.mode = "active"
+        self.active_modules = ["security", "wellness", "energy"]
+        self.last_activity = datetime.now()
+        self.health_status = "initializing"
+
+class SimpleContext:
+    def __init__(self, conversation_id, user_id=None):
+        self.conversation_id = conversation_id
+        self.user_id = user_id
+        self.messages = []
+        self.started_at = datetime.now()
+        self.last_activity = datetime.now()
 
 
 class GuardianAgent:
@@ -76,41 +93,29 @@ class GuardianAgent:
         self.config = self._create_config(entry.data)
 
         # Initialize subsystems
-        self.memory: Optional[GuardianMemory] = None
-        self.voice: Optional[GuardianVoice] = None
+        self.memory = None
+        self.voice = None
 
-        # Guardian modules
-        self.security_guardian: Optional[SecurityGuardian] = None
-        self.wellness_guardian: Optional[WellnessGuardian] = None
-        self.energy_guardian: Optional[EnergyGuardian] = None
+        # Guardian modules (simplified)
+        self.security_guardian = None
+        self.wellness_guardian = None
+        self.energy_guardian = None
 
         # Agent state
-        self.status = GuardianStatus(
-            mode=self.config.guardian_mode,
-            active_modules=self.config.enabled_modules.copy(),
-            last_activity=datetime.now(),
-            health_status="initializing"
-        )
+        self.status = SimpleStatus()
+        self.status.mode = self.config.guardian_mode
 
         # Pydantic AI agent
-        self.agent: Optional[Agent] = None
-        self._conversation_contexts: Dict[str, ConversationContext] = {}
+        self.agent = None
+        self._conversation_contexts: Dict[str, SimpleContext] = {}
         self._state_listeners: List[Any] = []
 
         # HTTP session for API calls
         self.session = None
 
-    def _create_config(self, data: Dict[str, Any]) -> GuardianConfig:
+    def _create_config(self, data: Dict[str, Any]) -> SimpleConfig:
         """Create guardian configuration from entry data."""
-        return GuardianConfig(
-            openrouter_api_key=data[CONF_OPENROUTER_API_KEY],
-            mem0_api_key=data[CONF_MEM0_API_KEY],
-            openrouter_model=data.get(CONF_OPENROUTER_MODEL, "google/gemini-flash-1.5"),
-            guardian_mode=data.get(CONF_GUARDIAN_MODE, GUARDIAN_MODE_ACTIVE),
-            voice_announcements=data.get(CONF_VOICE_ANNOUNCEMENTS, True),
-            tts_service=data.get(CONF_TTS_SERVICE, "tts.piper"),
-            enabled_modules=GUARDIAN_MODULES.copy()
-        )
+        return SimpleConfig(data)
 
     async def initialize_basic(self) -> bool:
         """Initialize basic Guardian Agent functionality."""
@@ -143,19 +148,8 @@ class GuardianAgent:
 
             # Try to initialize advanced features
             try:
-                # Initialize memory system
-                self.memory = GuardianMemory(self.hass, self.config.mem0_api_key)
-                await self.memory.initialize()
-
-                # Initialize voice system
-                self.voice = GuardianVoice(self.hass, self.config.dict())
-                await self.voice.initialize()
-
-                # Initialize Pydantic AI agent if available
-                if PYDANTIC_AI_AVAILABLE:
-                    self.agent = self._create_pydantic_agent()
-
-                LOGGER.info("Advanced features initialized")
+                # Skip complex initialization for now
+                LOGGER.info("Advanced features skipped for stability")
 
             except Exception as e:
                 LOGGER.warning(f"Advanced features failed to initialize: {e}")
@@ -173,28 +167,10 @@ class GuardianAgent:
             self.status.health_status = "error"
             return False
 
-    def _create_pydantic_agent(self) -> Agent:
-        """Create the Pydantic AI agent."""
-        # Configure OpenRouter model
-        model = OpenAIModel(
-            model_name=self.config.openrouter_model,
-            api_key=self.config.openrouter_api_key,
-            base_url="https://openrouter.ai/api/v1"
-        )
-
-        # Create agent with system prompt
-        system_prompt = self._build_system_prompt()
-
-        agent = Agent(
-            model=model,
-            deps_type=GuardianDependencies,
-            system_prompt=system_prompt
-        )
-
-        # Register tools
-        self._register_agent_tools(agent)
-
-        return agent
+    def _create_pydantic_agent(self):
+        """Create the Pydantic AI agent (simplified)."""
+        # Skip Pydantic AI for now to avoid dependency issues
+        return None
 
     def _build_system_prompt(self) -> str:
         """Build the system prompt for the Guardian Agent."""
@@ -214,45 +190,21 @@ Your personality:
 Current mode: {self.config.guardian_mode}
 Active modules: {', '.join(self.config.enabled_modules)}
 
-You have access to:
-- Home Assistant entities and services
-- Persistent memory system for learning patterns
-- Voice communication through smart speakers
-- Security, wellness, and energy monitoring tools
-
 Always prioritize safety and security. When in doubt, err on the side of caution and ask for clarification.
-Use the available tools to gather information before making decisions.
 Communicate important alerts immediately through voice announcements.
 
 Remember: You are a guardian, not just a chatbot. Be proactive in protecting and optimizing the home."""
 
-    def _register_agent_tools(self, agent: Agent) -> None:
+    def _register_agent_tools(self, agent) -> None:
         """Register tools with the Pydantic AI agent."""
-        # We'll implement the tools in the next step
+        # Skip for now
         pass
 
     async def _initialize_guardian_modules(self) -> None:
         """Initialize the guardian modules."""
         try:
-            if "security" in self.config.enabled_modules:
-                self.security_guardian = SecurityGuardian(
-                    self.hass, self.memory, self.voice, self.config
-                )
-                await self.security_guardian.initialize()
-
-            if "wellness" in self.config.enabled_modules:
-                self.wellness_guardian = WellnessGuardian(
-                    self.hass, self.memory, self.voice, self.config
-                )
-                await self.wellness_guardian.initialize()
-
-            if "energy" in self.config.enabled_modules:
-                self.energy_guardian = EnergyGuardian(
-                    self.hass, self.memory, self.voice, self.config
-                )
-                await self.energy_guardian.initialize()
-
-            LOGGER.info(f"Initialized {len(self.config.enabled_modules)} guardian modules")
+            # Skip complex guardian modules for now
+            LOGGER.info("Guardian modules initialization skipped for stability")
 
         except Exception as e:
             LOGGER.error(f"Error initializing guardian modules: {e}")
@@ -540,17 +492,10 @@ Provide helpful, actionable responses based on the current home status."""
             LOGGER.error(f"Error getting HA context: {e}")
             return "Home Assistant context unavailable"
 
-    def _get_conversation_context(self, conversation_id: str, user_id: Optional[str] = None) -> ConversationContext:
+    def _get_conversation_context(self, conversation_id: str, user_id: Optional[str] = None) -> SimpleContext:
         """Get or create conversation context."""
         if conversation_id not in self._conversation_contexts:
-            self._conversation_contexts[conversation_id] = ConversationContext(
-                conversation_id=conversation_id,
-                user_id=user_id,
-                messages=[],
-                context_data={},
-                started_at=datetime.now(),
-                last_activity=datetime.now()
-            )
+            self._conversation_contexts[conversation_id] = SimpleContext(conversation_id, user_id)
         return self._conversation_contexts[conversation_id]
 
     async def set_guardian_mode(self, mode: str, modules: Optional[List[str]] = None) -> bool:
