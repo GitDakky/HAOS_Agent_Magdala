@@ -1,44 +1,53 @@
 """Config flow for Agent Magdala."""
+from __future__ import annotations
+
+from typing import Any
+
 import voluptuous as vol
-from homeassistant.config_entries import ConfigFlow, OptionsFlow, ConfigEntry
+
+from homeassistant import config_entries
 from homeassistant.core import callback
-from homeassistant.const import CONF_API_KEY
+from homeassistant.data_entry_flow import FlowResult
+from homeassistant.exceptions import HomeAssistantError
 
 from .const import (
     DOMAIN,
-    LOGGER,
     CONF_OPENROUTER_API_KEY,
     CONF_PERPLEXITY_API_KEY,
     CONF_OPENROUTER_MODEL,
     DEFAULT_OPENROUTER_MODEL,
 )
 
-class AgentMagdalaConfigFlow(ConfigFlow, domain=DOMAIN):
+# Schema for user input
+STEP_USER_DATA_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_OPENROUTER_API_KEY): str,
+        vol.Required(CONF_PERPLEXITY_API_KEY): str,
+        vol.Optional(CONF_OPENROUTER_MODEL, default=DEFAULT_OPENROUTER_MODEL): str,
+    }
+)
+
+
+class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Agent Magdala."""
 
     VERSION = 1
 
-    @staticmethod
-    @callback
-    def async_get_options_flow(config_entry: ConfigEntry):
-        """Get the options flow for this handler."""
-        return OptionsFlowHandler(config_entry)
-
-    async def async_step_user(self, user_input=None):
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
         """Handle the initial step."""
-        errors = {}
+        errors: dict[str, str] = {}
+        
         if user_input is not None:
-            # For simplicity, we're not validating the keys against the APIs here,
-            # but a real implementation should to provide better user feedback.
-            # We'll just ensure they are not empty.
+            # Validate the user input
             if not user_input.get(CONF_OPENROUTER_API_KEY):
                 errors[CONF_OPENROUTER_API_KEY] = "openrouter_key_empty"
             if not user_input.get(CONF_PERPLEXITY_API_KEY):
                 errors[CONF_PERPLEXITY_API_KEY] = "perplexity_key_empty"
 
             if not errors:
-                # Unique ID for the integration. Since we only want one instance,
-                # we can use the domain itself.
+                # Create a unique ID based on the domain
                 await self.async_set_unique_id(DOMAIN)
                 self._abort_if_unique_id_configured()
 
@@ -49,46 +58,59 @@ class AgentMagdalaConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="user",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_OPENROUTER_API_KEY): str,
-                    vol.Required(CONF_PERPLEXITY_API_KEY): str,
-                    vol.Optional(CONF_OPENROUTER_MODEL, default=DEFAULT_OPENROUTER_MODEL): str,
-                }
-            ),
+            data_schema=STEP_USER_DATA_SCHEMA,
             errors=errors,
         )
 
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> OptionsFlow:
+        """Get the options flow for this handler."""
+        return OptionsFlow(config_entry)
 
-class OptionsFlowHandler(OptionsFlow):
-    """Handle an options flow for Agent Magdala."""
 
-    def __init__(self, config_entry: ConfigEntry) -> None:
+class OptionsFlow(config_entries.OptionsFlow):
+    """Handle options flow for Agent Magdala."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         """Initialize options flow."""
         self.config_entry = config_entry
 
-    async def async_step_init(self, user_input=None):
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
         """Manage the options."""
         if user_input is not None:
-            # Update the config entry with new options
             return self.async_create_entry(title="", data=user_input)
 
-        # Define the options schema, allowing users to change settings after setup
+        # Define the options schema
         options_schema = vol.Schema(
             {
                 vol.Required(
                     CONF_OPENROUTER_API_KEY,
-                    default=self.config_entry.data.get(CONF_OPENROUTER_API_KEY),
+                    default=self.config_entry.data.get(CONF_OPENROUTER_API_KEY, ""),
                 ): str,
                 vol.Required(
                     CONF_PERPLEXITY_API_KEY,
-                    default=self.config_entry.data.get(CONF_PERPLEXITY_API_KEY),
+                    default=self.config_entry.data.get(CONF_PERPLEXITY_API_KEY, ""),
                 ): str,
                 vol.Optional(
                     CONF_OPENROUTER_MODEL,
-                    default=self.config_entry.data.get(CONF_OPENROUTER_MODEL, DEFAULT_OPENROUTER_MODEL),
+                    default=self.config_entry.data.get(
+                        CONF_OPENROUTER_MODEL, DEFAULT_OPENROUTER_MODEL
+                    ),
                 ): str,
             }
         )
 
         return self.async_show_form(step_id="init", data_schema=options_schema)
+
+
+class CannotConnect(HomeAssistantError):
+    """Error to indicate we cannot connect."""
+
+
+class InvalidAuth(HomeAssistantError):
+    """Error to indicate there is invalid auth."""
