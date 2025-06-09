@@ -99,6 +99,44 @@ Transform your Home Assistant into a **true AI guardian** that:
 ### ⚡ Energy Optimization
 *"I've noticed the washing machine has been running during peak energy hours. I can schedule it to run at 11 PM when rates are 40% lower. Would you like me to set this up automatically?"*
 
+## 💬 Chat Interface
+
+### Custom Lovelace Card
+The integration includes a beautiful chat interface card for your dashboard:
+
+```yaml
+type: custom:agent-magdala-chat-card
+title: "🤖 Agent Magdala Guardian"
+theme: dark  # or light
+height: 500px
+```
+
+**Features:**
+- **Real-time chat** with your AI Guardian
+- **Conversation history** maintained across sessions
+- **Typing indicators** and status updates
+- **Cyberpunk aesthetic** with green/black theme
+- **Mobile responsive** design
+
+### Dashboard Integration
+The integration creates several entities for full dashboard control:
+
+**Sensors:**
+- `sensor.agent_magdala_status` - Agent health status
+- `sensor.agent_magdala_mode` - Current guardian mode
+- `sensor.agent_magdala_conversations` - Active conversation count
+- `sensor.agent_magdala_last_interaction` - Last activity timestamp
+
+**Switches:**
+- `switch.agent_magdala_guardian_active` - Toggle guardian mode
+- `switch.agent_magdala_security_module` - Security monitoring
+- `switch.agent_magdala_wellness_module` - Wellness monitoring
+- `switch.agent_magdala_energy_module` - Energy monitoring
+
+**Binary Sensors:**
+- `binary_sensor.agent_magdala_agent_online` - Agent availability
+- `binary_sensor.agent_magdala_api_connected` - API connection status
+
 ## Services & Events
 
 ### Service: `agent_magdala.ask`
@@ -117,6 +155,16 @@ service: agent_magdala.guardian_mode
 data:
   mode: "active"  # active, passive, sleep
   modules: ["security", "wellness", "energy"]
+```
+
+### Service: `agent_magdala.control_device`
+Control devices through the agent:
+```yaml
+service: agent_magdala.control_device
+data:
+  entity_id: "light.living_room"
+  action: "turn_on"
+  brightness: 200
 ```
 
 ### Events

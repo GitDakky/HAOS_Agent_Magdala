@@ -407,6 +407,146 @@ Provide helpful, actionable responses based on the current home status."""
 
             return error_response
 
+    async def control_device(self, entity_id: str, action: str, **kwargs) -> bool:
+        """Control a Home Assistant device."""
+        try:
+            domain = entity_id.split('.')[0]
+
+            # Map common actions to service calls
+            service_map = {
+                'light': {
+                    'turn_on': 'light.turn_on',
+                    'turn_off': 'light.turn_off',
+                    'toggle': 'light.toggle'
+                },
+                'switch': {
+                    'turn_on': 'switch.turn_on',
+                    'turn_off': 'switch.turn_off',
+                    'toggle': 'switch.toggle'
+                },
+                'climate': {
+                    'set_temperature': 'climate.set_temperature',
+                    'set_hvac_mode': 'climate.set_hvac_mode',
+                    'turn_on': 'climate.turn_on',
+                    'turn_off': 'climate.turn_off'
+                },
+                'cover': {
+                    'open': 'cover.open_cover',
+                    'close': 'cover.close_cover',
+                    'stop': 'cover.stop_cover',
+                    'toggle': 'cover.toggle'
+                },
+                'media_player': {
+                    'play': 'media_player.media_play',
+                    'pause': 'media_player.media_pause',
+                    'stop': 'media_player.media_stop',
+                    'turn_on': 'media_player.turn_on',
+                    'turn_off': 'media_player.turn_off'
+                }
+            }
+
+            if domain in service_map and action in service_map[domain]:
+                service = service_map[domain][action]
+                service_domain, service_name = service.split('.')
+
+                service_data = {'entity_id': entity_id}
+                service_data.update(kwargs)
+
+                await self.hass.services.async_call(
+                    service_domain,
+                    service_name,
+                    service_data
+                )
+
+                LOGGER.info(f"Successfully controlled {entity_id}: {action}")
+                return True
+            else:
+                LOGGER.warning(f"Unsupported action {action} for domain {domain}")
+                return False
+
+        except Exception as e:
+            LOGGER.error(f"Error controlling device {entity_id}: {e}")
+            return False
+
+    async def get_entity_details(self, entity_id: str) -> Dict[str, Any]:
+        """Get detailed information about a specific entity."""
+        try:
+            state = self.hass.states.get(entity_id)
+            if not state:
+                return {"error": f"Entity {entity_id} not found"}
+
+            # Get device and area information
+            device_registry = self.hass.helpers.device_registry.async_get(self.hass)
+            entity_registry = self.hass.helpers.entity_registry.async_get(self.hass)
+            area_registry = self.hass.helpers.area_registry.async_get(self.hass)
+
+            entity_entry = entity_registry.async_get(entity_id)
+            device_info = None
+            area_info = None
+
+            if entity_entry:
+                if entity_entry.device_id:
+                    device_entry = device_registry.async_get(entity_entry.device_id)
+                    if device_entry:
+                        device_info = {
+                            'name': device_entry.name,
+                            'manufacturer': device_entry.manufacturer,
+                            'model': device_entry.model,
+                            'sw_version': device_entry.sw_version
+                        }
+
+                if entity_entry.area_id:
+                    area_entry = area_registry.async_get_area(entity_entry.area_id)
+                    if area_entry:
+                        area_info = {
+                            'name': area_entry.name,
+                            'id': area_entry.id
+                        }
+
+            return {
+                'entity_id': entity_id,
+                'state': state.state,
+                'attributes': dict(state.attributes),
+                'last_changed': state.last_changed.isoformat() if state.last_changed else None,
+                'last_updated': state.last_updated.isoformat() if state.last_updated else None,
+                'domain': state.domain,
+                'device_info': device_info,
+                'area_info': area_info
+            }
+
+        except Exception as e:
+            LOGGER.error(f"Error getting entity details for {entity_id}: {e}")
+            return {"error": str(e)}
+
+    async def get_entities_by_area(self, area_name: str) -> List[Dict[str, Any]]:
+        """Get all entities in a specific area."""
+        try:
+            area_registry = self.hass.helpers.area_registry.async_get(self.hass)
+            entity_registry = self.hass.helpers.entity_registry.async_get(self.hass)
+
+            # Find area by name
+            area_entry = None
+            for area in area_registry.areas.values():
+                if area.name.lower() == area_name.lower():
+                    area_entry = area
+                    break
+
+            if not area_entry:
+                return []
+
+            # Get entities in this area
+            entities = []
+            for entity_entry in entity_registry.entities.values():
+                if entity_entry.area_id == area_entry.id:
+                    entity_details = await self.get_entity_details(entity_entry.entity_id)
+                    entities.append(entity_details)
+
+            return entities
+
+        except Exception as e:
+            LOGGER.error(f"Error getting entities for area {area_name}: {e}")
+            return []
+
     async def _call_openrouter_api(self, messages: List[Dict[str, str]]) -> str:
         """Call OpenRouter API to get AI response."""
         try:
@@ -446,45 +586,120 @@ Provide helpful, actionable responses based on the current home status."""
             return f"Connection Error: Unable to reach AI model ({str(e)})"
 
     async def _get_home_assistant_context(self) -> str:
-        """Get current Home Assistant context for the AI."""
+        """Get comprehensive Home Assistant context for the AI."""
         try:
             context_parts = []
 
             # Get basic system info
             context_parts.append(f"Current time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-            # Get some key entities (limit to avoid overwhelming the AI)
+            # Get all entities with full context
             states = self.hass.states.async_all()
 
-            # Security entities
-            security_entities = []
+            # Organize entities by domain and area
+            entities_by_domain = {}
+            entities_by_area = {}
+
             for state in states:
-                if any(keyword in state.entity_id.lower() for keyword in ['door', 'window', 'lock', 'alarm', 'motion']):
-                    security_entities.append(f"{state.entity_id}: {state.state}")
-                    if len(security_entities) >= 10:  # Limit to 10 security entities
-                        break
+                domain = state.domain
+                if domain not in entities_by_domain:
+                    entities_by_domain[domain] = []
+
+                # Get entity details
+                entity_info = {
+                    'entity_id': state.entity_id,
+                    'state': state.state,
+                    'attributes': dict(state.attributes),
+                    'last_changed': state.last_changed.isoformat() if state.last_changed else None,
+                    'last_updated': state.last_updated.isoformat() if state.last_updated else None
+                }
+
+                entities_by_domain[domain].append(entity_info)
+
+                # Group by area if available
+                area = state.attributes.get('area_id') or state.attributes.get('area')
+                if area:
+                    if area not in entities_by_area:
+                        entities_by_area[area] = []
+                    entities_by_area[area].append(entity_info)
+
+            # Security entities (detailed)
+            security_domains = ['binary_sensor', 'alarm_control_panel', 'camera', 'lock', 'cover']
+            security_entities = []
+            for domain in security_domains:
+                if domain in entities_by_domain:
+                    for entity in entities_by_domain[domain]:
+                        if any(keyword in entity['entity_id'].lower() for keyword in
+                               ['door', 'window', 'lock', 'alarm', 'motion', 'security', 'camera', 'garage']):
+                            security_entities.append(entity)
 
             if security_entities:
-                context_parts.append("Security Status:")
-                context_parts.extend([f"  - {entity}" for entity in security_entities])
+                context_parts.append("🔒 Security Status:")
+                for entity in security_entities[:15]:  # Limit to 15 most important
+                    friendly_name = entity['attributes'].get('friendly_name', entity['entity_id'])
+                    context_parts.append(f"  - {friendly_name}: {entity['state']}")
 
-            # Climate entities
+            # Climate and environment
             climate_entities = []
-            for state in states:
-                if state.domain in ['climate', 'weather'] or 'temperature' in state.entity_id.lower():
-                    climate_entities.append(f"{state.entity_id}: {state.state}")
-                    if len(climate_entities) >= 5:  # Limit to 5 climate entities
-                        break
+            for domain in ['climate', 'weather', 'sensor']:
+                if domain in entities_by_domain:
+                    for entity in entities_by_domain[domain]:
+                        if any(keyword in entity['entity_id'].lower() for keyword in
+                               ['temperature', 'humidity', 'weather', 'climate', 'thermostat']):
+                            climate_entities.append(entity)
 
             if climate_entities:
-                context_parts.append("Climate Status:")
-                context_parts.extend([f"  - {entity}" for entity in climate_entities])
+                context_parts.append("🌡️ Climate & Environment:")
+                for entity in climate_entities[:10]:
+                    friendly_name = entity['attributes'].get('friendly_name', entity['entity_id'])
+                    unit = entity['attributes'].get('unit_of_measurement', '')
+                    context_parts.append(f"  - {friendly_name}: {entity['state']} {unit}".strip())
 
-            # Lights and switches (just count them)
-            light_count = len([s for s in states if s.domain == 'light'])
-            switch_count = len([s for s in states if s.domain == 'switch'])
+            # Lighting status
+            if 'light' in entities_by_domain:
+                lights_on = [e for e in entities_by_domain['light'] if e['state'] == 'on']
+                lights_total = len(entities_by_domain['light'])
+                context_parts.append(f"💡 Lighting: {len(lights_on)}/{lights_total} lights on")
+                if lights_on:
+                    context_parts.append("  Currently on:")
+                    for light in lights_on[:8]:  # Show first 8 lights that are on
+                        friendly_name = light['attributes'].get('friendly_name', light['entity_id'])
+                        brightness = light['attributes'].get('brightness', '')
+                        if brightness:
+                            brightness_pct = round((int(brightness) / 255) * 100)
+                            context_parts.append(f"    - {friendly_name} ({brightness_pct}%)")
+                        else:
+                            context_parts.append(f"    - {friendly_name}")
 
-            context_parts.append(f"Devices: {light_count} lights, {switch_count} switches")
+            # Energy and power
+            energy_entities = []
+            for domain in ['sensor', 'switch']:
+                if domain in entities_by_domain:
+                    for entity in entities_by_domain[domain]:
+                        if any(keyword in entity['entity_id'].lower() for keyword in
+                               ['power', 'energy', 'consumption', 'watt', 'kwh']):
+                            energy_entities.append(entity)
+
+            if energy_entities:
+                context_parts.append("⚡ Energy & Power:")
+                for entity in energy_entities[:8]:
+                    friendly_name = entity['attributes'].get('friendly_name', entity['entity_id'])
+                    unit = entity['attributes'].get('unit_of_measurement', '')
+                    context_parts.append(f"  - {friendly_name}: {entity['state']} {unit}".strip())
+
+            # Device counts by domain
+            domain_counts = {domain: len(entities) for domain, entities in entities_by_domain.items()}
+            important_domains = ['light', 'switch', 'sensor', 'binary_sensor', 'camera', 'media_player']
+            context_parts.append("📊 Device Summary:")
+            for domain in important_domains:
+                if domain in domain_counts:
+                    context_parts.append(f"  - {domain.replace('_', ' ').title()}: {domain_counts[domain]}")
+
+            # Areas/Rooms if available
+            if entities_by_area:
+                context_parts.append("🏠 Areas/Rooms:")
+                for area, entities in list(entities_by_area.items())[:8]:  # Show first 8 areas
+                    context_parts.append(f"  - {area}: {len(entities)} entities")
 
             return "\n".join(context_parts)
 

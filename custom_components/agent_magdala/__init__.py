@@ -1,6 +1,7 @@
 """Custom integration for Agent Magdala Guardian System."""
 import asyncio
 import logging
+from datetime import datetime
 from typing import Any, Dict
 
 from homeassistant.config_entries import ConfigEntry
@@ -163,6 +164,67 @@ async def _register_basic_services(hass: HomeAssistant) -> None:
 
     hass.services.async_register(
         DOMAIN, SERVICE_LEARN_PATTERN, handle_learn_pattern_service, schema=SERVICE_LEARN_PATTERN_SCHEMA
+    )
+
+    # Enhanced services for device control and entity access
+    async def handle_control_device_service(call: ServiceCall):
+        """Handle device control service."""
+        entity_id = call.data.get("entity_id")
+        action = call.data.get("action")
+        kwargs = {k: v for k, v in call.data.items() if k not in ["entity_id", "action"]}
+
+        _LOGGER.info(f"Device control service called: {entity_id} -> {action}")
+
+        # Fire event for now (placeholder)
+        hass.bus.async_fire(
+            f"{DOMAIN}_device_control",
+            {
+                "entity_id": entity_id,
+                "action": action,
+                "parameters": kwargs,
+                "timestamp": datetime.now().isoformat()
+            }
+        )
+
+    async def handle_get_entities_service(call: ServiceCall):
+        """Handle get entities service."""
+        area = call.data.get("area")
+        domain = call.data.get("domain")
+
+        _LOGGER.info(f"Get entities service called: area={area}, domain={domain}")
+
+        # Fire event with entity information
+        hass.bus.async_fire(
+            f"{DOMAIN}_entities_info",
+            {
+                "area": area,
+                "domain": domain,
+                "timestamp": datetime.now().isoformat()
+            }
+        )
+
+    # Register enhanced services
+    hass.services.async_register(
+        DOMAIN,
+        "control_device",
+        handle_control_device_service,
+        schema=vol.Schema({
+            vol.Required("entity_id"): cv.entity_id,
+            vol.Required("action"): cv.string,
+            vol.Optional("brightness"): vol.Range(min=0, max=255),
+            vol.Optional("temperature"): vol.Range(min=0, max=50),
+            vol.Optional("hvac_mode"): cv.string,
+        })
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        "get_entities",
+        handle_get_entities_service,
+        schema=vol.Schema({
+            vol.Optional("area"): cv.string,
+            vol.Optional("domain"): cv.string,
+        })
     )
 
 

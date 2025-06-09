@@ -8,8 +8,8 @@ DOMAIN = "agent_magdala"
 VERSION = "0.5.1"
 ATTRIBUTION = "AI Guardian Agent using Pydantic AI and Mem0"
 
-# Platforms - temporarily disabled until platform files are created
-PLATFORMS = []  # ["sensor", "switch", "binary_sensor"]
+# Platforms - now enabled with platform files created
+PLATFORMS = ["sensor", "switch", "binary_sensor"]
 
 # Configuration and options
 CONF_OPENROUTER_API_KEY = "openrouter_api_key"
