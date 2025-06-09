@@ -5,7 +5,7 @@ LOGGER: Logger = getLogger(__package__)
 
 NAME = "HAOS Agent Magdala"
 DOMAIN = "agent_magdala"
-VERSION = "0.5.1"
+VERSION = "0.6.0"
 ATTRIBUTION = "AI Guardian Agent using Pydantic AI and Mem0"
 
 # Platforms - now enabled with platform files created
