@@ -9,6 +9,7 @@ from langchain_openai import ChatOpenAI
 from langchain_perplexity import ChatPerplexity
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.tools import tool
 
 from .const import (
     DOMAIN,
