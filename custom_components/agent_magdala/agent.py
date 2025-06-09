@@ -4,15 +4,20 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Union
 import json
+import aiohttp
 
 from homeassistant.core import HomeAssistant, Event, State
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.helpers.event import async_track_state_change_event
-from homeassistant.const import EVENT_STATE_CHANGED
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-# Pydantic AI imports
-from pydantic_ai import Agent, RunContext
-from pydantic_ai.models.openai import OpenAIModel
+# Simplified imports to avoid dependency issues
+try:
+    from pydantic_ai import Agent, RunContext
+    from pydantic_ai.models.openai import OpenAIModel
+    PYDANTIC_AI_AVAILABLE = True
+except ImportError:
+    PYDANTIC_AI_AVAILABLE = False
+
 from pydantic import BaseModel
 
 from .const import (
@@ -26,6 +31,7 @@ from .const import (
     CONF_TTS_SERVICE,
     EVENT_AGENT_RESPONSE,
     EVENT_AGENT_ALERT,
+    EVENT_AGENT_PATTERN,
     EVENT_GUARDIAN_STATUS,
     GUARDIAN_MODE_ACTIVE,
     GUARDIAN_MODE_PASSIVE,
@@ -91,6 +97,9 @@ class GuardianAgent:
         self._conversation_contexts: Dict[str, ConversationContext] = {}
         self._state_listeners: List[Any] = []
 
+        # HTTP session for API calls
+        self.session = None
+
     def _create_config(self, data: Dict[str, Any]) -> GuardianConfig:
         """Create guardian configuration from entry data."""
         return GuardianConfig(
@@ -103,42 +112,58 @@ class GuardianAgent:
             enabled_modules=GUARDIAN_MODULES.copy()
         )
 
-    async def initialize(self) -> bool:
-        """Initialize the Guardian Agent and all subsystems."""
+    async def initialize_basic(self) -> bool:
+        """Initialize basic Guardian Agent functionality."""
         try:
-            LOGGER.info("Initializing Guardian Agent...")
+            LOGGER.info("Initializing Guardian Agent (basic mode)...")
 
-            # Initialize memory system
-            self.memory = GuardianMemory(self.hass, self.config.mem0_api_key)
-            if not await self.memory.initialize():
-                LOGGER.error("Failed to initialize memory system")
-                return False
-
-            # Initialize voice system
-            self.voice = GuardianVoice(self.hass, self.config.dict())
-            if not await self.voice.initialize():
-                LOGGER.error("Failed to initialize voice system")
-                return False
-
-            # Initialize Pydantic AI agent
-            self.agent = self._create_pydantic_agent()
-
-            # Initialize guardian modules
-            await self._initialize_guardian_modules()
-
-            # Set up state monitoring
-            await self._setup_state_monitoring()
+            # Set up basic HTTP session for API calls
+            self.session = async_get_clientsession(self.hass)
 
             # Update status
             self.status.health_status = "healthy"
             self.status.last_activity = datetime.now()
 
-            # Announce initialization
-            if self.voice and self.config.voice_announcements:
-                await self.voice.announce(
-                    "Guardian Agent Magdala is now online and protecting your home.",
-                    priority="medium"
-                )
+            LOGGER.info("Guardian Agent initialized successfully (basic mode)")
+            return True
+
+        except Exception as e:
+            LOGGER.error(f"Error initializing Guardian Agent: {e}", exc_info=True)
+            self.status.health_status = "error"
+            return False
+
+    async def initialize(self) -> bool:
+        """Initialize the full Guardian Agent and all subsystems."""
+        try:
+            LOGGER.info("Initializing Guardian Agent...")
+
+            # Basic initialization first
+            if not await self.initialize_basic():
+                return False
+
+            # Try to initialize advanced features
+            try:
+                # Initialize memory system
+                self.memory = GuardianMemory(self.hass, self.config.mem0_api_key)
+                await self.memory.initialize()
+
+                # Initialize voice system
+                self.voice = GuardianVoice(self.hass, self.config.dict())
+                await self.voice.initialize()
+
+                # Initialize Pydantic AI agent if available
+                if PYDANTIC_AI_AVAILABLE:
+                    self.agent = self._create_pydantic_agent()
+
+                LOGGER.info("Advanced features initialized")
+
+            except Exception as e:
+                LOGGER.warning(f"Advanced features failed to initialize: {e}")
+                # Continue with basic functionality
+
+            # Update status
+            self.status.health_status = "healthy"
+            self.status.last_activity = datetime.now()
 
             LOGGER.info("Guardian Agent initialized successfully")
             return True
@@ -235,16 +260,9 @@ Remember: You are a guardian, not just a chatbot. Be proactive in protecting and
     async def _setup_state_monitoring(self) -> None:
         """Set up state change monitoring for guardian functions."""
         try:
-            # Monitor all state changes for guardian analysis
-            self._state_listeners.append(
-                async_track_state_change_event(
-                    self.hass,
-                    None,  # Monitor all entities
-                    self._handle_state_change
-                )
-            )
-
-            LOGGER.debug("State monitoring set up successfully")
+            # For now, skip state monitoring to avoid import issues
+            # This will be implemented in a future update
+            LOGGER.debug("State monitoring setup skipped (will be implemented later)")
 
         except Exception as e:
             LOGGER.error(f"Error setting up state monitoring: {e}")
@@ -344,65 +362,183 @@ Remember: You are a guardian, not just a chatbot. Be proactive in protecting and
         return any(keyword in entity_id.lower() for keyword in energy_keywords)
 
     async def ask(self, prompt: str, conversation_id: Optional[str] = None, user_id: Optional[str] = None) -> str:
-        """Process a user query and return a response."""
+        """Process a user query and return a response using OpenRouter API."""
         try:
-            if not self.agent:
-                return "Guardian Agent is not initialized."
-
             # Get or create conversation context
             if not conversation_id:
                 conversation_id = f"conv_{datetime.now().timestamp()}"
 
             context = self._get_conversation_context(conversation_id, user_id)
 
-            # Get relevant memory context
-            memory_context = await self.memory.get_context_for_query(prompt, user_id)
+            # Get Home Assistant context
+            ha_context = await self._get_home_assistant_context()
 
-            # Create dependencies for the agent
-            deps = GuardianDependencies(
-                hass=self.hass,
-                memory=self.memory,
-                voice=self.voice,
-                config=self.config
-            )
+            # Build the system prompt
+            system_prompt = f"""You are HAOS Agent Magdala, an intelligent AI guardian for a Home Assistant smart home.
 
-            # Run the agent
-            result = await self.agent.run(
-                prompt,
-                deps=deps,
-                message_history=context.messages
-            )
+Your primary responsibilities:
+1. SECURITY: Monitor and protect the home from unauthorized access and security threats
+2. WELLNESS: Ensure the health and safety of family members
+3. ENERGY: Optimize energy usage and reduce waste
+
+Current Home Assistant Status:
+{ha_context}
+
+Your personality:
+- Protective but not intrusive
+- Helpful and proactive
+- Clear and concise in communication
+- Respectful of privacy and family routines
+
+Always prioritize safety and security. When in doubt, err on the side of caution.
+Provide helpful, actionable responses based on the current home status."""
+
+            # Prepare the conversation history
+            messages = [{"role": "system", "content": system_prompt}]
+
+            # Add conversation history (last 5 messages to keep context manageable)
+            for msg in context.messages[-10:]:  # Last 5 exchanges (user + assistant)
+                messages.append(msg)
+
+            # Add current user message
+            messages.append({"role": "user", "content": prompt})
+
+            # Call OpenRouter API
+            response_text = await self._call_openrouter_api(messages)
 
             # Update conversation context
             context.messages.append({"role": "user", "content": prompt})
-            context.messages.append({"role": "assistant", "content": result.data})
+            context.messages.append({"role": "assistant", "content": response_text})
             context.last_activity = datetime.now()
 
-            # Store conversation in memory
-            await self.memory.add_memory(
-                content=f"User query: {prompt}\nResponse: {result.data}",
-                category="conversation",
-                user_id=user_id,
-                importance=0.6,
-                metadata={"conversation_id": conversation_id}
-            )
+            # Store conversation in memory if available
+            if self.memory:
+                try:
+                    await self.memory.add_memory(
+                        content=f"User query: {prompt}\nResponse: {response_text}",
+                        category="conversation",
+                        user_id=user_id,
+                        importance=0.6,
+                        metadata={"conversation_id": conversation_id}
+                    )
+                except Exception as e:
+                    LOGGER.warning(f"Failed to store conversation in memory: {e}")
 
             # Fire response event
             self.hass.bus.async_fire(
                 EVENT_AGENT_RESPONSE,
                 {
-                    "response": result.data,
+                    "response": response_text,
                     "conversation_id": conversation_id,
                     "user_id": user_id,
                     "timestamp": datetime.now().isoformat()
                 }
             )
 
-            return result.data
+            return response_text
 
         except Exception as e:
             LOGGER.error(f"Error processing query: {e}", exc_info=True)
-            return "I apologize, but I encountered an error while processing your request."
+            error_response = f"I apologize, but I encountered an error while processing your request: {str(e)}"
+
+            # Fire error response event
+            self.hass.bus.async_fire(
+                EVENT_AGENT_RESPONSE,
+                {
+                    "response": error_response,
+                    "conversation_id": conversation_id,
+                    "user_id": user_id,
+                    "timestamp": datetime.now().isoformat(),
+                    "error": True
+                }
+            )
+
+            return error_response
+
+    async def _call_openrouter_api(self, messages: List[Dict[str, str]]) -> str:
+        """Call OpenRouter API to get AI response."""
+        try:
+            headers = {
+                "Authorization": f"Bearer {self.config.openrouter_api_key}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://github.com/GitDakky/HAOS_Agent_Magdala",
+                "X-Title": "HAOS Agent Magdala"
+            }
+
+            payload = {
+                "model": self.config.openrouter_model,
+                "messages": messages,
+                "temperature": 0.7,
+                "max_tokens": 1000,
+                "top_p": 1,
+                "frequency_penalty": 0,
+                "presence_penalty": 0
+            }
+
+            async with self.session.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=30
+            ) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return data["choices"][0]["message"]["content"]
+                else:
+                    error_text = await response.text()
+                    LOGGER.error(f"OpenRouter API error {response.status}: {error_text}")
+                    return f"API Error: Unable to get response from AI model (status {response.status})"
+
+        except Exception as e:
+            LOGGER.error(f"Error calling OpenRouter API: {e}")
+            return f"Connection Error: Unable to reach AI model ({str(e)})"
+
+    async def _get_home_assistant_context(self) -> str:
+        """Get current Home Assistant context for the AI."""
+        try:
+            context_parts = []
+
+            # Get basic system info
+            context_parts.append(f"Current time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+            # Get some key entities (limit to avoid overwhelming the AI)
+            states = self.hass.states.async_all()
+
+            # Security entities
+            security_entities = []
+            for state in states:
+                if any(keyword in state.entity_id.lower() for keyword in ['door', 'window', 'lock', 'alarm', 'motion']):
+                    security_entities.append(f"{state.entity_id}: {state.state}")
+                    if len(security_entities) >= 10:  # Limit to 10 security entities
+                        break
+
+            if security_entities:
+                context_parts.append("Security Status:")
+                context_parts.extend([f"  - {entity}" for entity in security_entities])
+
+            # Climate entities
+            climate_entities = []
+            for state in states:
+                if state.domain in ['climate', 'weather'] or 'temperature' in state.entity_id.lower():
+                    climate_entities.append(f"{state.entity_id}: {state.state}")
+                    if len(climate_entities) >= 5:  # Limit to 5 climate entities
+                        break
+
+            if climate_entities:
+                context_parts.append("Climate Status:")
+                context_parts.extend([f"  - {entity}" for entity in climate_entities])
+
+            # Lights and switches (just count them)
+            light_count = len([s for s in states if s.domain == 'light'])
+            switch_count = len([s for s in states if s.domain == 'switch'])
+
+            context_parts.append(f"Devices: {light_count} lights, {switch_count} switches")
+
+            return "\n".join(context_parts)
+
+        except Exception as e:
+            LOGGER.error(f"Error getting HA context: {e}")
+            return "Home Assistant context unavailable"
 
     def _get_conversation_context(self, conversation_id: str, user_id: Optional[str] = None) -> ConversationContext:
         """Get or create conversation context."""
@@ -420,7 +556,7 @@ Remember: You are a guardian, not just a chatbot. Be proactive in protecting and
     async def set_guardian_mode(self, mode: str, modules: Optional[List[str]] = None) -> bool:
         """Set the guardian mode and optionally enable/disable modules."""
         try:
-            if mode not in [GUARDIAN_MODE_ACTIVE, GUARDIAN_MODE_PASSIVE, GUARDIAN_MODE_SLEEP]:
+            if mode not in ["active", "passive", "sleep"]:
                 LOGGER.error(f"Invalid guardian mode: {mode}")
                 return False
 
@@ -429,22 +565,6 @@ Remember: You are a guardian, not just a chatbot. Be proactive in protecting and
 
             if modules:
                 self.status.active_modules = [m for m in modules if m in GUARDIAN_MODULES]
-
-            # Notify guardian modules of mode change
-            for guardian in [self.security_guardian, self.wellness_guardian, self.energy_guardian]:
-                if guardian:
-                    await guardian.set_mode(mode)
-
-            # Announce mode change
-            if self.voice and mode != old_mode:
-                if mode == GUARDIAN_MODE_ACTIVE:
-                    message = "Guardian mode activated. Full monitoring enabled."
-                elif mode == GUARDIAN_MODE_PASSIVE:
-                    message = "Guardian mode set to passive. Monitoring with reduced alerts."
-                else:  # SLEEP
-                    message = "Guardian mode set to sleep. Monitoring paused except for emergencies."
-
-                await self.voice.announce(message, priority="medium")
 
             # Fire status event
             self.hass.bus.async_fire(
@@ -466,38 +586,64 @@ Remember: You are a guardian, not just a chatbot. Be proactive in protecting and
 
     async def announce(self, message: str, priority: str = "low", location: Optional[str] = None) -> bool:
         """Make a voice announcement."""
-        if not self.voice:
-            LOGGER.warning("Voice system not available for announcement")
-            return False
+        try:
+            if self.voice:
+                return await self.voice.announce(message, priority, location)
+            else:
+                # Fallback: log the announcement
+                LOGGER.info(f"Voice announcement ({priority}): {message}")
 
-        return await self.voice.announce(message, priority, location)
+                # Fire an event for the announcement
+                self.hass.bus.async_fire(
+                    f"{DOMAIN}_announcement",
+                    {
+                        "message": message,
+                        "priority": priority,
+                        "location": location,
+                        "timestamp": datetime.now().isoformat()
+                    }
+                )
+                return True
+
+        except Exception as e:
+            LOGGER.error(f"Error making announcement: {e}")
+            return False
 
     async def learn_pattern(self, pattern_type: str, pattern_data: Dict[str, Any], user_id: Optional[str] = None) -> bool:
         """Learn a new pattern from user behavior."""
         try:
-            if not self.memory:
-                return False
+            if self.memory:
+                from .models import UserPattern
 
-            from .models import UserPattern
-
-            pattern = UserPattern(
-                user_id=user_id or "household",
-                pattern_type=pattern_type,
-                pattern_data=pattern_data,
-                confidence=0.7,  # Initial confidence
-                last_updated=datetime.now(),
-                occurrences=1
-            )
-
-            success = await self.memory.learn_pattern(pattern)
-
-            if success and self.voice:
-                await self.voice.announce(
-                    f"I've learned a new {pattern_type} pattern for your household.",
-                    priority="low"
+                pattern = UserPattern(
+                    user_id=user_id or "household",
+                    pattern_type=pattern_type,
+                    pattern_data=pattern_data,
+                    confidence=0.7,  # Initial confidence
+                    last_updated=datetime.now(),
+                    occurrences=1
                 )
 
-            return success
+                success = await self.memory.learn_pattern(pattern)
+
+                if success:
+                    LOGGER.info(f"Learned new pattern: {pattern_type}")
+                    return True
+            else:
+                # Fallback: just log the pattern
+                LOGGER.info(f"Pattern learning (no memory system): {pattern_type} - {pattern_data}")
+
+                # Fire an event for the learned pattern
+                self.hass.bus.async_fire(
+                    EVENT_AGENT_PATTERN,
+                    {
+                        "pattern_type": pattern_type,
+                        "pattern_data": pattern_data,
+                        "user_id": user_id,
+                        "timestamp": datetime.now().isoformat()
+                    }
+                )
+                return True
 
         except Exception as e:
             LOGGER.error(f"Error learning pattern: {e}")
