@@ -1,0 +1,35 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "HAOS Agent Magdala: API Keys",
+        "description": "Please enter your API keys for OpenRouter and Perplexity.",
+        "data": {
+          "openrouter_api_key": "OpenRouter API Key",
+          "perplexity_api_key": "Perplexity API Key",
+          "openrouter_model": "OpenRouter Model"
+        }
+      }
+    },
+    "error": {
+      "openrouter_key_empty": "OpenRouter API Key cannot be empty.",
+      "perplexity_key_empty": "Perplexity API Key cannot be empty."
+    },
+    "abort": {
+      "already_configured": "This agent has already been configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "HAOS Agent Magdala: Options",
+        "description": "Update your API keys and model preferences.",
+        "data": {
+          "openrouter_api_key": "OpenRouter API Key",
+          "perplexity_api_key": "Perplexity API Key",
+          "openrouter_model": "OpenRouter Model"
+        }
+      }
+    }
+  }
+}
