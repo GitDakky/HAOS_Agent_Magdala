@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any, Dict, Optional
 
 from homeassistant.components.binary_sensor import (
@@ -14,6 +14,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, VERSION
 
@@ -112,8 +113,8 @@ class AgentMagdalaBinarySensor(BinarySensorEntity):
             if not self._agent._conversation_contexts:
                 return False
             recent_activity = any(
-                ctx.last_activity and 
-                (datetime.now() - ctx.last_activity).total_seconds() < 300  # 5 minutes
+                ctx.last_activity and
+                (dt_util.utcnow() - ctx.last_activity).total_seconds() < 300  # 5 minutes
                 for ctx in self._agent._conversation_contexts.values()
             )
             return recent_activity
@@ -132,7 +133,7 @@ class AgentMagdalaBinarySensor(BinarySensorEntity):
             return {
                 "health_status": self._agent.status.health_status,
                 "last_activity": self._agent.status.last_activity.isoformat() if self._agent.status.last_activity else None,
-                "uptime_seconds": (datetime.now() - getattr(self._agent, '_init_time', datetime.now())).total_seconds(),
+                "uptime_seconds": (dt_util.utcnow() - getattr(self._agent, '_init_time', dt_util.utcnow())).total_seconds(),
             }
         elif key == "api_connected":
             return {
@@ -150,7 +151,7 @@ class AgentMagdalaBinarySensor(BinarySensorEntity):
             active_conversations = [
                 ctx.conversation_id for ctx in self._agent._conversation_contexts.values()
                 if ctx.last_activity and 
-                (datetime.now() - ctx.last_activity).total_seconds() < 300
+                (dt_util.utcnow() - ctx.last_activity).total_seconds() < 300
             ]
             return {
                 "active_conversation_ids": active_conversations,

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from homeassistant.components.sensor import (
     SensorEntity,
@@ -15,6 +15,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, VERSION
 
@@ -124,7 +125,12 @@ class AgentMagdalaSensor(SensorEntity):
         elif key == "conversations":
             return len(self._agent._conversation_contexts)
         elif key == "last_interaction":
-            return self._agent.status.last_activity
+            if self._agent.status.last_activity:
+                # Ensure timezone-aware datetime
+                if self._agent.status.last_activity.tzinfo is None:
+                    return dt_util.as_local(self._agent.status.last_activity)
+                return self._agent.status.last_activity
+            return None
         elif key == "active_modules":
             return ", ".join(self._agent.status.active_modules)
         elif key == "response_time":

@@ -9,6 +9,7 @@ import aiohttp
 from homeassistant.core import HomeAssistant, Event, State
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.util import dt as dt_util
 
 # Simplified imports to avoid dependency issues
 try:
@@ -71,7 +72,7 @@ class SimpleStatus:
     def __init__(self):
         self.mode = "active"
         self.active_modules = ["security", "wellness", "energy"]
-        self.last_activity = datetime.now()
+        self.last_activity = dt_util.utcnow()
         self.health_status = "initializing"
 
 class SimpleContext:
@@ -79,8 +80,8 @@ class SimpleContext:
         self.conversation_id = conversation_id
         self.user_id = user_id
         self.messages = []
-        self.started_at = datetime.now()
-        self.last_activity = datetime.now()
+        self.started_at = dt_util.utcnow()
+        self.last_activity = dt_util.utcnow()
 
 
 class GuardianAgent:
@@ -127,7 +128,7 @@ class GuardianAgent:
 
             # Update status
             self.status.health_status = "healthy"
-            self.status.last_activity = datetime.now()
+            self.status.last_activity = dt_util.utcnow()
 
             LOGGER.info("Guardian Agent initialized successfully (basic mode)")
             return True
@@ -157,7 +158,7 @@ class GuardianAgent:
 
             # Update status
             self.status.health_status = "healthy"
-            self.status.last_activity = datetime.now()
+            self.status.last_activity = dt_util.utcnow()
 
             LOGGER.info("Guardian Agent initialized successfully")
             return True
@@ -244,7 +245,7 @@ Remember: You are a guardian, not just a chatbot. Be proactive in protecting and
                 await self.energy_guardian.handle_state_change(new_state, old_state)
 
             # Update last activity
-            self.status.last_activity = datetime.now()
+            self.status.last_activity = dt_util.utcnow()
 
         except Exception as e:
             LOGGER.error(f"Error handling state change: {e}")
@@ -318,7 +319,7 @@ Remember: You are a guardian, not just a chatbot. Be proactive in protecting and
         try:
             # Get or create conversation context
             if not conversation_id:
-                conversation_id = f"conv_{datetime.now().timestamp()}"
+                conversation_id = f"conv_{dt_util.utcnow().timestamp()}"
 
             context = self._get_conversation_context(conversation_id, user_id)
 
@@ -361,7 +362,7 @@ Provide helpful, actionable responses based on the current home status."""
             # Update conversation context
             context.messages.append({"role": "user", "content": prompt})
             context.messages.append({"role": "assistant", "content": response_text})
-            context.last_activity = datetime.now()
+            context.last_activity = dt_util.utcnow()
 
             # Store conversation in memory if available
             if self.memory:
@@ -383,7 +384,7 @@ Provide helpful, actionable responses based on the current home status."""
                     "response": response_text,
                     "conversation_id": conversation_id,
                     "user_id": user_id,
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": dt_util.utcnow().isoformat()
                 }
             )
 
@@ -400,7 +401,7 @@ Provide helpful, actionable responses based on the current home status."""
                     "response": error_response,
                     "conversation_id": conversation_id,
                     "user_id": user_id,
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": dt_util.utcnow().isoformat(),
                     "error": True
                 }
             )
@@ -591,7 +592,7 @@ Provide helpful, actionable responses based on the current home status."""
             context_parts = []
 
             # Get basic system info
-            context_parts.append(f"Current time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            context_parts.append(f"Current time: {dt_util.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
             # Get all entities with full context
             states = self.hass.states.async_all()
@@ -733,7 +734,7 @@ Provide helpful, actionable responses based on the current home status."""
                     "mode": mode,
                     "active_modules": self.status.active_modules,
                     "previous_mode": old_mode,
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": dt_util.utcnow().isoformat()
                 }
             )
 
@@ -780,7 +781,7 @@ Provide helpful, actionable responses based on the current home status."""
                     pattern_type=pattern_type,
                     pattern_data=pattern_data,
                     confidence=0.7,  # Initial confidence
-                    last_updated=datetime.now(),
+                    last_updated=dt_util.utcnow(),
                     occurrences=1
                 )
 
@@ -800,7 +801,7 @@ Provide helpful, actionable responses based on the current home status."""
                         "pattern_type": pattern_type,
                         "pattern_data": pattern_data,
                         "user_id": user_id,
-                        "timestamp": datetime.now().isoformat()
+                        "timestamp": dt_util.utcnow().isoformat()
                     }
                 )
                 return True
@@ -813,7 +814,7 @@ Provide helpful, actionable responses based on the current home status."""
         """Get current guardian status."""
         try:
             # Update status with current metrics
-            self.status.uptime_hours = (datetime.now() - self.status.last_activity).total_seconds() / 3600
+            self.status.uptime_hours = (dt_util.utcnow() - self.status.last_activity).total_seconds() / 3600
 
             if self.memory:
                 # Get memory usage (simplified)
@@ -893,7 +894,7 @@ Provide helpful, actionable responses based on the current home status."""
                     "alert_type": "emergency",
                     "emergency_type": emergency_type,
                     "details": details,
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": dt_util.utcnow().isoformat(),
                     "priority": "critical"
                 }
             )
