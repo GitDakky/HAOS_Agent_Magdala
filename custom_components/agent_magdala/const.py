@@ -5,7 +5,7 @@ LOGGER: Logger = getLogger(__package__)
 
 NAME = "HAOS Agent Magdala"
 DOMAIN = "agent_magdala"
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 ATTRIBUTION = "AI Agent using OpenRouter and Perplexity"
 
 # Platforms
