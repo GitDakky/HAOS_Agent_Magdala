@@ -66,7 +66,7 @@
 </head>
 <body>
     <div id="chat-container">
-        <div class="message agent-message">Hello! I am Agent Magdala. How can I help you with your Home Assistant today?</div>
+        <div class="message agent-message">Hello! I am HAOS Agent Magdala. How can I help you with your Home Assistant today?</div>
     </div>
     <div id="input-container">
         <input type="text" id="prompt-input" placeholder="Ask me anything...">
@@ -74,20 +74,11 @@
     </div>
 
     <script type="module">
-        // This script will run inside the Home Assistant iframe panel
-        // It needs to get the hass object from the parent window
-        
-        // A simple function to get the hass object from the top window
-        // This is a common pattern for custom panels
         function getHass() {
             let element = parent.document.querySelector("home-assistant");
-            if (element) {
-                return element.hass;
-            }
+            if (element) return element.hass;
             element = parent.document.querySelector("hc-main");
-            if (element) {
-                return element.hass;
-            }
+            if (element) return element.hass;
             return undefined;
         }
 
@@ -102,6 +93,7 @@
             messageDiv.textContent = text;
             chatContainer.appendChild(messageDiv);
             chatContainer.scrollTop = chatContainer.scrollHeight;
+            return messageDiv; // Return the element so we can update it
         }
 
         async function sendMessage() {
@@ -113,32 +105,41 @@
             promptInput.disabled = true;
             sendButton.disabled = true;
             
-            addMessage('Thinking...', 'agent');
+            const thinkingMessage = addMessage('Thinking...', 'agent');
+            const conversationId = Date.now().toString();
 
             if (!hass) {
-                addMessage('Error: Could not connect to Home Assistant.', 'agent');
+                thinkingMessage.textContent = 'Error: Could not connect to Home Assistant.';
+                promptInput.disabled = false;
+                sendButton.disabled = false;
                 return;
             }
 
-            try {
-                // Call the service we created in __init__.py
-                await hass.callService('agent_magdala', 'ask', {
-                    prompt: prompt
-                });
-                // The response will appear as a persistent notification for now.
-                // We'll need to implement a way to get the response back to the UI later.
-                // For now, we'll just update the UI with a confirmation.
-                const thinkingMessage = chatContainer.querySelector('.agent-message:last-child');
-                thinkingMessage.textContent = "I've received your request and am working on it. My response will appear as a persistent notification in Home Assistant for now.";
+            const unsubscribe = await hass.connection.subscribeMessage(
+                (event) => {
+                    if (event.data.conversation_id === conversationId) {
+                        thinkingMessage.textContent = event.data.response;
+                        promptInput.disabled = false;
+                        sendButton.disabled = false;
+                        promptInput.focus();
+                        unsubscribe();
+                    }
+                },
+                { type: 'event', event_type: 'agent_magdala_response' }
+            );
 
+            try {
+                await hass.callService('agent_magdala', 'ask', {
+                    prompt: prompt,
+                    conversation_id: conversationId
+                });
             } catch (error) {
                 console.error('Error calling service:', error);
-                const thinkingMessage = chatContainer.querySelector('.agent-message:last-child');
                 thinkingMessage.textContent = `Error: ${error.message || 'Could not call the agent service.'}`;
-            } finally {
                 promptInput.disabled = false;
                 sendButton.disabled = false;
                 promptInput.focus();
+                unsubscribe();
             }
         }
 
@@ -148,7 +149,6 @@
                 sendMessage();
             }
         });
-
     </script>
 </body>
 </html>

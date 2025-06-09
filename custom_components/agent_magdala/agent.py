@@ -98,13 +98,12 @@ class MagdalaAgent:
             )
 
             output = response.get("output", "Sorry, I encountered an error.")
-            LOGGER.debug(f"Agent generated response: {output}")
-            
-            # Here, we would typically send the response back to the user,
-            # e.g., via a persistent notification, a chat UI update, or a service response.
-            # For now, we'll just log it.
-            self.hass.components.persistent_notification.async_create(
-                message=output, title="HAOS Agent Magdala Response"
+            LOGGER.debug(f"Agent generated response for conversation {conversation_id}: {output}")
+
+            # Fire a custom event with the response that the frontend can listen for.
+            self.hass.bus.async_fire(
+                f"{DOMAIN}_response",
+                {"response": output, "conversation_id": conversation_id},
             )
 
             return output
