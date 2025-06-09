@@ -1,6 +1,5 @@
 """Constants for Agent Magdala Guardian System."""
 from logging import Logger, getLogger
-from typing import Literal
 
 LOGGER: Logger = getLogger(__package__)
 
@@ -9,8 +8,8 @@ DOMAIN = "agent_magdala"
 VERSION = "0.4.0-dev"
 ATTRIBUTION = "AI Guardian Agent using Pydantic AI and Mem0"
 
-# Platforms
-PLATFORMS = ["sensor", "switch", "binary_sensor"]
+# Platforms - temporarily disabled until platform files are created
+PLATFORMS = []  # ["sensor", "switch", "binary_sensor"]
 
 # Configuration and options
 CONF_OPENROUTER_API_KEY = "openrouter_api_key"
@@ -41,13 +40,11 @@ GUARDIAN_ENERGY = "energy"
 GUARDIAN_MODULES = [GUARDIAN_SECURITY, GUARDIAN_WELLNESS, GUARDIAN_ENERGY]
 
 # Guardian Modes
-GuardianMode = Literal["active", "passive", "sleep"]
 GUARDIAN_MODE_ACTIVE = "active"
 GUARDIAN_MODE_PASSIVE = "passive"
 GUARDIAN_MODE_SLEEP = "sleep"
 
 # Alert Priorities
-AlertPriority = Literal["low", "medium", "high", "critical"]
 PRIORITY_LOW = "low"
 PRIORITY_MEDIUM = "medium"
 PRIORITY_HIGH = "high"

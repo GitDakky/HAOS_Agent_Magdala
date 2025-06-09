@@ -29,7 +29,7 @@ from .const import (
     PLATFORMS,
 )
 
-from .agent import GuardianAgent
+# from .agent import GuardianAgent  # Temporarily disabled
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -68,25 +68,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Agent Magdala Guardian from a config entry."""
     _LOGGER.info(STARTUP_MESSAGE)
 
-    # Initialize the Guardian Agent
-    guardian_agent = GuardianAgent(hass, entry)
-
-    # Store the agent instance
+    # Store the config entry data for now
     hass.data[DOMAIN][entry.entry_id] = {
-        "agent": guardian_agent,
         "config": entry.data
     }
 
-    # Initialize the agent
-    if not await guardian_agent.initialize():
-        _LOGGER.error("Failed to initialize Guardian Agent")
-        return False
+    # Register basic services (without agent for now)
+    await _register_basic_services(hass)
 
-    # Register services
-    await _register_services(hass, guardian_agent)
-
-    # Set up platforms
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    # Set up platforms if any
+    if PLATFORMS:
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     entry.async_on_unload(entry.add_update_listener(async_update_options))
 
@@ -94,8 +86,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
-async def _register_services(hass: HomeAssistant, agent: GuardianAgent) -> None:
-    """Register all Guardian Agent services."""
+async def _register_basic_services(hass: HomeAssistant) -> None:
+    """Register basic Guardian Agent services."""
 
     async def handle_ask_service(call: ServiceCall):
         """Handle the service call to ask the agent a question."""
@@ -106,25 +98,23 @@ async def _register_services(hass: HomeAssistant, agent: GuardianAgent) -> None:
             _LOGGER.error("Service call 'ask' is missing required attribute 'prompt'")
             return
 
-        try:
-            response = await agent.ask(prompt, conversation_id)
-            _LOGGER.debug(f"Agent response: {response[:100]}...")
-        except Exception as e:
-            _LOGGER.error(f"Error processing ask service: {e}")
+        # Temporary response while agent is being developed
+        _LOGGER.info(f"Agent received prompt: {prompt}")
+        hass.bus.async_fire(
+            f"{DOMAIN}_response",
+            {
+                "response": "Guardian Agent is initializing. Full functionality coming soon!",
+                "conversation_id": conversation_id
+            }
+        )
 
     async def handle_guardian_mode_service(call: ServiceCall):
         """Handle guardian mode changes."""
         mode = call.data.get(ATTR_MODE)
         modules = call.data.get(ATTR_MODULES)
 
-        try:
-            success = await agent.set_guardian_mode(mode, modules)
-            if success:
-                _LOGGER.info(f"Guardian mode set to {mode}")
-            else:
-                _LOGGER.error(f"Failed to set guardian mode to {mode}")
-        except Exception as e:
-            _LOGGER.error(f"Error setting guardian mode: {e}")
+        _LOGGER.info(f"Guardian mode service called: {mode}, modules: {modules}")
+        # Placeholder implementation
 
     async def handle_announce_service(call: ServiceCall):
         """Handle voice announcements."""
@@ -132,28 +122,16 @@ async def _register_services(hass: HomeAssistant, agent: GuardianAgent) -> None:
         priority = call.data.get(ATTR_PRIORITY, "low")
         location = call.data.get(ATTR_LOCATION)
 
-        try:
-            success = await agent.announce(message, priority, location)
-            if success:
-                _LOGGER.debug(f"Announcement made: {message[:50]}...")
-            else:
-                _LOGGER.warning("Failed to make announcement")
-        except Exception as e:
-            _LOGGER.error(f"Error making announcement: {e}")
+        _LOGGER.info(f"Announce service called: {message}")
+        # Placeholder implementation
 
     async def handle_learn_pattern_service(call: ServiceCall):
         """Handle pattern learning."""
         pattern_type = call.data.get(ATTR_PATTERN_TYPE)
         pattern_data = call.data.get(ATTR_PATTERN_DATA)
 
-        try:
-            success = await agent.learn_pattern(pattern_type, pattern_data)
-            if success:
-                _LOGGER.info(f"Learned new pattern: {pattern_type}")
-            else:
-                _LOGGER.warning(f"Failed to learn pattern: {pattern_type}")
-        except Exception as e:
-            _LOGGER.error(f"Error learning pattern: {e}")
+        _LOGGER.info(f"Learn pattern service called: {pattern_type}")
+        # Placeholder implementation
 
     # Register all services
     hass.services.async_register(
