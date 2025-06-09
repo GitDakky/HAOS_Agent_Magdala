@@ -9,10 +9,10 @@
   "iot_class": "cloud_polling",
   "integration_type": "service",
   "requirements": [
-    "langchain==0.2.1",
-    "langchain-openai==0.1.7",
-    "langchain_community==0.2.1",
-    "langchain-perplexity==0.0.3"
+    "langchain",
+    "langchain-openai",
+    "langchain_community",
+    "langchain-perplexity"
   ],
   "loggers": ["langchain", "agent_magdala"]
 }
