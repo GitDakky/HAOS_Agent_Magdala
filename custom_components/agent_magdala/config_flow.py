@@ -18,6 +18,12 @@ class AgentMagdalaConfigFlow(ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry):
+        """Get the options flow for this handler."""
+        return OptionsFlowHandler(config_entry)
+
     async def async_step_user(self, user_input=None):
         """Handle the initial step."""
         errors = {}
@@ -53,14 +59,8 @@ class AgentMagdalaConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    @staticmethod
-    @callback
-    def async_get_options_flow(config_entry: ConfigEntry):
-        """Get the options flow for this handler."""
-        return AgentMagdalaOptionsFlowHandler(config_entry)
 
-
-class AgentMagdalaOptionsFlowHandler(OptionsFlow):
+class OptionsFlowHandler(OptionsFlow):
     """Handle an options flow for Agent Magdala."""
 
     def __init__(self, config_entry: ConfigEntry) -> None:
