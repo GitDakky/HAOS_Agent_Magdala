@@ -3,6 +3,7 @@ import voluptuous as vol
 import logging
 
 from homeassistant import config_entries
+from homeassistant.core import callback
 
 # Use string constants directly to avoid import issues
 DOMAIN = "agent_magdala"
@@ -31,11 +32,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
 
         if user_input is not None:
-            # Basic validation - just check if keys are provided
+            # Basic validation - just check if OpenRouter API key is provided
             if not user_input.get(CONF_OPENROUTER_API_KEY):
                 errors[CONF_OPENROUTER_API_KEY] = "required"
-            elif not user_input.get(CONF_MEM0_API_KEY):
-                errors[CONF_MEM0_API_KEY] = "required"
             else:
                 # Skip API validation for now to avoid setup issues
                 return self.async_create_entry(
@@ -45,7 +44,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         data_schema = vol.Schema({
             vol.Required(CONF_OPENROUTER_API_KEY): str,
-            vol.Required(CONF_MEM0_API_KEY): str,
+            vol.Optional(CONF_MEM0_API_KEY, default=""): str,
             vol.Optional(CONF_OPENROUTER_MODEL, default=DEFAULT_OPENROUTER_MODEL): str,
             vol.Optional(CONF_GUARDIAN_MODE, default="active"): vol.In(["active", "passive", "sleep"]),
             vol.Optional(CONF_VOICE_ANNOUNCEMENTS, default=DEFAULT_VOICE_ANNOUNCEMENTS): bool,

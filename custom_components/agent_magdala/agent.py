@@ -19,7 +19,12 @@ try:
 except ImportError:
     PYDANTIC_AI_AVAILABLE = False
 
-from pydantic import BaseModel
+try:
+    from pydantic import BaseModel
+except ImportError:
+    # Create a simple BaseModel replacement
+    class BaseModel:
+        pass
 
 from .const import (
     DOMAIN,
