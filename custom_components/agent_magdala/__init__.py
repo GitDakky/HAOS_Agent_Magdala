@@ -31,6 +31,7 @@ from .const import (
 )
 
 from .agent import GuardianAgent
+from .websocket import async_register_websocket_handlers
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -79,8 +80,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             "config": entry.data
         }
 
+        # Store agent globally for WebSocket access
+        hass.data[DOMAIN]["agent"] = guardian_agent
+
         # Initialize the agent (this will be simplified for now)
         await guardian_agent.initialize_basic()
+
+        # Register WebSocket handlers
+        async_register_websocket_handlers(hass)
 
         # Register services with the actual agent
         await _register_services(hass, guardian_agent)
