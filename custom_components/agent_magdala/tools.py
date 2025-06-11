@@ -1,63 +1,78 @@
-"""Tools for the HAOS Agent Magdala to interact with Home Assistant."""
+"""Secure Tools for the HAOS Agent Magdala to interact with Home Assistant."""
 import logging
-from typing import Optional, Dict, Any
-import asyncio
+from typing import Optional, Dict, Any, List
 
 from homeassistant.core import HomeAssistant
-from langchain_core.tools import tool
 
 _LOGGER = logging.getLogger(__name__)
 
-class HomeAssistantToolFactory:
-    """Factory to create Home Assistant tools with access to the hass object."""
+# Safe domains for service calls
+SAFE_DOMAINS = {
+    'light', 'switch', 'fan', 'cover', 'climate', 'media_player',
+    'vacuum', 'lock', 'alarm_control_panel', 'camera', 'notify'
+}
+
+# Safe services that don't modify critical system state
+SAFE_SERVICES = {
+    'turn_on', 'turn_off', 'toggle', 'set_temperature', 'set_hvac_mode',
+    'open_cover', 'close_cover', 'stop_cover', 'play_media', 'media_play',
+    'media_pause', 'media_stop', 'start', 'pause', 'stop', 'return_to_base',
+    'lock', 'unlock', 'arm_home', 'arm_away', 'disarm'
+}
+
+# Dangerous services that should not be allowed
+DANGEROUS_SERVICES = {
+    'reload', 'restart', 'stop', 'reload_config_entry', 'reload_core_config',
+    'check_config', 'restart_homeassistant', 'stop_homeassistant'
+}
+
+class SecureHomeAssistantTools:
+    """Secure tools for Home Assistant interaction with permission checks."""
 
     def __init__(self, hass: HomeAssistant):
-        """Initialize the tool factory."""
+        """Initialize the secure tools."""
         self.hass = hass
 
-    def get_tools(self) -> list:
-        """Return a list of all available tools."""
-        # We need to bind self to the tools
-        call_service_tool = tool(self.call_service)
-        get_entity_state_tool = tool(self.get_entity_state)
-        get_entities_by_domain_tool = tool(self.get_entities_by_domain)
-        set_entity_state_tool = tool(self.set_entity_state)
-        
-        return [
-            call_service_tool,
-            get_entity_state_tool,
-            get_entities_by_domain_tool,
-            set_entity_state_tool,
-        ]
+    def _is_safe_service_call(self, domain: str, service: str) -> bool:
+        """Check if a service call is safe to execute."""
+        # Block dangerous services
+        if service in DANGEROUS_SERVICES:
+            return False
 
-    def call_service(self, domain: str, service: str, service_data: Optional[Dict[str, Any]] = None) -> str:
+        # Only allow safe domains
+        if domain not in SAFE_DOMAINS:
+            return False
+
+        # Only allow safe services
+        if service not in SAFE_SERVICES:
+            return False
+
+        return True
+
+    async def call_service(self, domain: str, service: str, service_data: Optional[Dict[str, Any]] = None) -> str:
         """
-        Calls a Home Assistant service.
+        Safely calls a Home Assistant service with security checks.
 
         Args:
-            domain: The domain of the service to call (e.g., 'light', 'switch', 'homeassistant').
-            service: The name of the service to call (e.g., 'turn_on', 'toggle', 'reload_config_entry').
-            service_data: A dictionary of data to pass to the service call. For example, to turn on a light, this would be {'entity_id': 'light.my_light'}.
-        
+            domain: The domain of the service to call (e.g., 'light', 'switch').
+            service: The name of the service to call (e.g., 'turn_on', 'toggle').
+            service_data: A dictionary of data to pass to the service call.
+
         Returns:
             A string indicating success or failure.
         """
-        _LOGGER.debug(f"Agent is calling service: {domain}.{service} with data: {service_data}")
+        # Security check
+        if not self._is_safe_service_call(domain, service):
+            _LOGGER.warning(f"Blocked unsafe service call: {domain}.{service}")
+            return f"Service call {domain}.{service} is not permitted for security reasons."
+
+        _LOGGER.info(f"Agent calling service: {domain}.{service}")
         try:
-            # Since we're running in an executor thread, we need to properly handle the async call
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
-            async def _call_service():
-                await self.hass.services.async_call(domain, service, service_data or {}, blocking=True)
-            
-            loop.run_until_complete(_call_service())
-            loop.close()
-            
+            await self.hass.services.async_call(domain, service, service_data or {}, blocking=True)
             return f"Successfully called service {domain}.{service}."
         except Exception as e:
-            _LOGGER.error(f"Error calling service {domain}.{service}: {e}")
-            return f"Error calling service {domain}.{service}: {e}"
+            _LOGGER.error(f"Error calling service {domain}.{service}: {type(e).__name__}")
+            return f"Error calling service {domain}.{service}: {type(e).__name__}"
 
     def get_entity_state(self, entity_id: str) -> str:
         """
@@ -65,77 +80,93 @@ class HomeAssistantToolFactory:
 
         Args:
             entity_id: The entity ID to get the state of (e.g., 'light.living_room').
-        
+
         Returns:
-            A string with the entity's state and attributes.
+            A string with the entity's state and key attributes.
         """
-        _LOGGER.debug(f"Agent is getting state for entity: {entity_id}")
+        _LOGGER.debug(f"Agent getting state for entity: {entity_id}")
         try:
             state = self.hass.states.get(entity_id)
             if state is None:
                 return f"Entity {entity_id} not found."
-            
+
             result = f"Entity: {entity_id}\nState: {state.state}"
+
+            # Only include important attributes to avoid information overload
+            important_attrs = ['friendly_name', 'unit_of_measurement', 'brightness',
+                             'temperature', 'humidity', 'battery_level', 'device_class']
+
             if state.attributes:
-                result += "\nAttributes:\n"
-                for key, value in state.attributes.items():
-                    result += f"  {key}: {value}\n"
-            
+                result += "\nKey Attributes:"
+                for key in important_attrs:
+                    if key in state.attributes:
+                        result += f"\n  {key}: {state.attributes[key]}"
+
             return result
         except Exception as e:
-            _LOGGER.error(f"Error getting state for entity {entity_id}: {e}")
-            return f"Error getting state for entity {entity_id}: {e}"
+            _LOGGER.error(f"Error getting state for entity {entity_id}: {type(e).__name__}")
+            return f"Error getting state for entity {entity_id}: {type(e).__name__}"
 
-    def get_entities_by_domain(self, domain: str) -> str:
+    def get_entities_by_domain(self, domain: str, limit: int = 20) -> str:
         """
-        Get all entities for a specific domain.
+        Get entities for a specific domain with a reasonable limit.
 
         Args:
             domain: The domain to get entities for (e.g., 'light', 'switch', 'sensor').
-        
+            limit: Maximum number of entities to return (default: 20).
+
         Returns:
-            A string listing all entities in the domain with their states.
+            A string listing entities in the domain with their states.
         """
-        _LOGGER.debug(f"Agent is getting entities for domain: {domain}")
+        _LOGGER.debug(f"Agent getting entities for domain: {domain}")
         try:
             entities = []
+            count = 0
+
             for state in self.hass.states.async_all():
-                if state.entity_id.startswith(f"{domain}."):
-                    entities.append(f"{state.entity_id}: {state.state}")
-            
+                if state.entity_id.startswith(f"{domain}.") and count < limit:
+                    friendly_name = state.attributes.get('friendly_name', state.entity_id)
+                    entities.append(f"{friendly_name}: {state.state}")
+                    count += 1
+
             if not entities:
                 return f"No entities found for domain '{domain}'."
-            
-            return f"Entities in domain '{domain}':\n" + "\n".join(entities)
-        except Exception as e:
-            _LOGGER.error(f"Error getting entities for domain {domain}: {e}")
-            return f"Error getting entities for domain {domain}: {e}"
 
-    def set_entity_state(self, entity_id: str, state: str, attributes: Optional[Dict[str, Any]] = None) -> str:
+            result = f"Entities in domain '{domain}' (showing {len(entities)}):\n"
+            result += "\n".join(entities)
+
+            if count >= limit:
+                result += f"\n... (limited to {limit} entities)"
+
+            return result
+        except Exception as e:
+            _LOGGER.error(f"Error getting entities for domain {domain}: {type(e).__name__}")
+            return f"Error getting entities for domain {domain}: {type(e).__name__}"
+
+    def get_area_entities(self, area_name: str) -> str:
         """
-        Set the state of a Home Assistant entity (use with caution).
+        Get entities in a specific area.
 
         Args:
-            entity_id: The entity ID to set the state of.
-            state: The new state value.
-            attributes: Optional dictionary of attributes to set.
-        
+            area_name: The name of the area to get entities for.
+
         Returns:
-            A string indicating success or failure.
+            A string listing entities in the area.
         """
-        _LOGGER.debug(f"Agent is setting state for entity: {entity_id} to {state}")
+        _LOGGER.debug(f"Agent getting entities for area: {area_name}")
         try:
-            # Setting state directly should be done carefully
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
-            async def _set_state():
-                self.hass.states.async_set(entity_id, state, attributes or {})
-            
-            loop.run_until_complete(_set_state())
-            loop.close()
-            
-            return f"Successfully set state of {entity_id} to {state}."
+            entities = []
+
+            for state in self.hass.states.async_all():
+                area = state.attributes.get('area_id') or state.attributes.get('area')
+                if area and area.lower() == area_name.lower():
+                    friendly_name = state.attributes.get('friendly_name', state.entity_id)
+                    entities.append(f"{friendly_name}: {state.state}")
+
+            if not entities:
+                return f"No entities found for area '{area_name}'."
+
+            return f"Entities in area '{area_name}':\n" + "\n".join(entities)
         except Exception as e:
-            _LOGGER.error(f"Error setting state for entity {entity_id}: {e}")
-            return f"Error setting state for entity {entity_id}: {e}"
+            _LOGGER.error(f"Error getting entities for area {area_name}: {type(e).__name__}")
+            return f"Error getting entities for area {area_name}: {type(e).__name__}"

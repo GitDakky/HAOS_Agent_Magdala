@@ -39,6 +39,7 @@ from .const import (
     GUARDIAN_MODE_SLEEP,
     GUARDIAN_MODULES,
 )
+from .llm_client import LLMClient, LLMError
 
 # Simplified imports to avoid dependency issues
 # from .models import (
@@ -114,6 +115,9 @@ class GuardianAgent:
         # HTTP session for API calls
         self.session = None
 
+        # LLM client for robust API calls
+        self.llm_client = None
+
     def _create_config(self, data: Dict[str, Any]) -> SimpleConfig:
         """Create guardian configuration from entry data."""
         return SimpleConfig(data)
@@ -125,6 +129,16 @@ class GuardianAgent:
 
             # Set up basic HTTP session for API calls
             self.session = async_get_clientsession(self.hass)
+
+            # Initialize LLM client if API key is available
+            if self.config.openrouter_api_key:
+                self.llm_client = LLMClient(
+                    self.hass,
+                    self.config.openrouter_api_key
+                )
+                LOGGER.info("LLM client initialized successfully")
+            else:
+                LOGGER.warning("No OpenRouter API key provided - LLM functionality disabled")
 
             # Update status
             self.status.health_status = "healthy"
@@ -356,8 +370,11 @@ Provide helpful, actionable responses based on the current home status."""
             # Add current user message
             messages.append({"role": "user", "content": prompt})
 
-            # Call OpenRouter API
-            response_text = await self._call_openrouter_api(messages)
+            # Call LLM API using robust client
+            if not self.llm_client:
+                raise LLMError("LLM client not initialized - check OpenRouter API key")
+
+            response_text = await self._call_llm_api(messages)
 
             # Update conversation context
             context.messages.append({"role": "user", "content": prompt})
@@ -548,43 +565,31 @@ Provide helpful, actionable responses based on the current home status."""
             LOGGER.error(f"Error getting entities for area {area_name}: {e}")
             return []
 
-    async def _call_openrouter_api(self, messages: List[Dict[str, str]]) -> str:
-        """Call OpenRouter API to get AI response."""
+    async def _call_llm_api(self, messages: List[Dict[str, str]]) -> str:
+        """Call LLM API using robust client with retry logic."""
         try:
-            headers = {
-                "Authorization": f"Bearer {self.config.openrouter_api_key}",
-                "Content-Type": "application/json",
-                "HTTP-Referer": "https://github.com/GitDakky/HAOS_Agent_Magdala",
-                "X-Title": "HAOS Agent Magdala"
-            }
+            if not self.llm_client:
+                raise LLMError("LLM client not initialized")
 
-            payload = {
-                "model": self.config.openrouter_model,
-                "messages": messages,
-                "temperature": 0.7,
-                "max_tokens": 1000,
-                "top_p": 1,
-                "frequency_penalty": 0,
-                "presence_penalty": 0
-            }
+            # Use the robust LLM client
+            response = await self.llm_client.chat_completion(
+                messages=messages,
+                model=self.config.openrouter_model,
+                temperature=0.7,
+                max_tokens=1000
+            )
 
-            async with self.session.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=30
-            ) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    return data["choices"][0]["message"]["content"]
-                else:
-                    error_text = await response.text()
-                    LOGGER.error(f"OpenRouter API error {response.status}: {error_text}")
-                    return f"API Error: Unable to get response from AI model (status {response.status})"
+            if "choices" in response and len(response["choices"]) > 0:
+                return response["choices"][0]["message"]["content"]
+            else:
+                raise LLMError("No choices in response")
 
+        except LLMError as e:
+            LOGGER.error(f"LLM API error: {e}")
+            return f"AI Error: {str(e)}"
         except Exception as e:
-            LOGGER.error(f"Error calling OpenRouter API: {e}")
-            return f"Connection Error: Unable to reach AI model ({str(e)})"
+            LOGGER.error(f"Unexpected error calling LLM API: {e}")
+            return f"Connection Error: Unable to reach AI model ({type(e).__name__})"
 
     async def _get_home_assistant_context(self) -> str:
         """Get comprehensive Home Assistant context for the AI."""
@@ -850,6 +855,10 @@ Provide helpful, actionable responses based on the current home status."""
             for listener in self._state_listeners:
                 listener()
             self._state_listeners.clear()
+
+            # Close LLM client
+            if self.llm_client:
+                await self.llm_client.close()
 
             # Update status
             self.status.health_status = "offline"
