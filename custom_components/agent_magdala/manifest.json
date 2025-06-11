@@ -13,5 +13,11 @@
     "pydantic>=2.0.0"
   ],
   "platforms": ["sensor", "switch", "binary_sensor"],
-  "loggers": ["agent_magdala", "pydantic_ai", "mem0"]
+  "loggers": ["agent_magdala", "pydantic_ai", "mem0"],
+  "frontend": {
+    "js": {
+      "url": "/local/custom_components/agent_magdala/frontend/agent-magdala-chat-card-v2.js",
+      "type": "module"
+    }
+  }
 }

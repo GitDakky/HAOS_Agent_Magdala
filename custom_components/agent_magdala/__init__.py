@@ -31,8 +31,7 @@ from .const import (
 )
 
 from .agent import GuardianAgent
-# Temporarily disable websocket import to fix config flow
-# from .websocket import async_register_websocket_handlers
+from .websocket import async_register_websocket_handlers
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -87,8 +86,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Initialize the agent (this will be simplified for now)
         await guardian_agent.initialize_basic()
 
-        # Register WebSocket handlers (temporarily disabled)
-        # async_register_websocket_handlers(hass)
+        # Register WebSocket handlers
+        async_register_websocket_handlers(hass)
 
         # Register services with the actual agent
         await _register_services(hass, guardian_agent)
