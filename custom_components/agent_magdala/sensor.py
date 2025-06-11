@@ -159,10 +159,11 @@ class AgentMagdalaSensor(SensorEntity):
                 "mode_description": self._get_mode_description(self._agent.status.mode),
             }
         elif key == "conversations":
+            now = dt_util.utcnow()  # Use timezone-aware current time
             active_conversations = len([
                 ctx for ctx in self._agent._conversation_contexts.values()
-                if ctx.last_activity and 
-                (datetime.now() - ctx.last_activity).total_seconds() < 3600  # Active in last hour
+                if ctx.last_activity and
+                (now - ctx.last_activity).total_seconds() < 3600  # Active in last hour
             ])
             return {
                 "active_conversations": active_conversations,

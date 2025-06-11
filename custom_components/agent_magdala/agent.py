@@ -771,7 +771,7 @@ Provide helpful, actionable responses based on the current home status."""
                         "message": message,
                         "priority": priority,
                         "location": location,
-                        "timestamp": datetime.now().isoformat()
+                        "timestamp": dt_util.utcnow().isoformat()
                     }
                 )
                 return True
