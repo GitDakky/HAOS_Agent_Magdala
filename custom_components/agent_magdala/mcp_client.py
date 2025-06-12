@@ -17,18 +17,23 @@ _LOGGER = logging.getLogger(__name__)
 class MCPClient:
     """Client for communicating with Home Assistant MCP Server."""
     
-    def __init__(self, hass: HomeAssistant, mcp_server_url: str = "http://localhost:3000"):
+    def __init__(self, hass: HomeAssistant, mcp_server_url: str = "http://localhost:3001", ha_token: str = None):
         self.hass = hass
         self.mcp_server_url = mcp_server_url
+        self.ha_token = ha_token or "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJhNTcyOWRkZGRhNjc0ZGFmYWEyZDdmNGNmOTkyM2E0YiIsImlhdCI6MTY5MzU5NzY2NywiZXhwIjoyMDA4OTU3NjY3fQ.n-W21HwVPLDbTjP0Rf0RiJdcdLjYyQVQvKX5EIr2TPA"
         self.session: Optional[aiohttp.ClientSession] = None
         self.sse_connection: Optional[aiohttp.ClientSession] = None
         self.is_connected = False
         
     async def _get_session(self) -> aiohttp.ClientSession:
-        """Get or create aiohttp session."""
+        """Get or create aiohttp session with authentication headers."""
         if self.session is None or self.session.closed:
             timeout = aiohttp.ClientTimeout(total=30)
-            self.session = aiohttp.ClientSession(timeout=timeout)
+            headers = {
+                "Authorization": f"Bearer {self.ha_token}",
+                "Content-Type": "application/json"
+            }
+            self.session = aiohttp.ClientSession(timeout=timeout, headers=headers)
         return self.session
     
     async def close(self):
@@ -103,19 +108,23 @@ class MCPClient:
         try:
             session = await self._get_session()
             payload = {
-                "tool": "control",
                 "command": command,
                 "entity_id": entity_id,
                 **kwargs
             }
-            
+
             async with session.post(
-                f"{self.mcp_server_url}/api/action",
+                f"{self.mcp_server_url}/control",
                 json=payload
             ) as response:
                 if response.status == 200:
-                    _LOGGER.info(f"Successfully controlled {entity_id}: {command}")
-                    return True
+                    data = await response.json()
+                    if data.get("success"):
+                        _LOGGER.info(f"Successfully controlled {entity_id}: {command}")
+                        return True
+                    else:
+                        _LOGGER.error(f"MCP control failed: {data.get('message', 'Unknown error')}")
+                        return False
                 else:
                     _LOGGER.error(f"Failed to control {entity_id}: {response.status}")
                     return False
@@ -214,20 +223,39 @@ class MCPClient:
         except Exception as e:
             _LOGGER.error(f"Error in SSE subscription: {e}")
     
+    async def interpret_natural_language(self, input_text: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Interpret natural language commands via MCP."""
+        try:
+            session = await self._get_session()
+            payload = {
+                "input": input_text,
+                "context": context or {},
+                "model": "claude"
+            }
+
+            async with session.post(
+                f"{self.mcp_server_url}/interpret",
+                json=payload
+            ) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    _LOGGER.info(f"Successfully interpreted: {input_text}")
+                    return data
+                else:
+                    _LOGGER.error(f"Failed to interpret command: {response.status}")
+                    return {}
+        except Exception as e:
+            _LOGGER.error(f"Error interpreting natural language via MCP: {e}")
+            return {}
+
     async def get_system_info(self) -> Dict[str, Any]:
         """Get Home Assistant system information via MCP."""
         try:
             session = await self._get_session()
-            async with session.post(
-                f"{self.mcp_server_url}/api/action",
-                json={
-                    "tool": "system_info",
-                    "action": "get_info"
-                }
-            ) as response:
+            async with session.get(f"{self.mcp_server_url}/health") as response:
                 if response.status == 200:
                     data = await response.json()
-                    return data.get("system_info", {})
+                    return data
                 else:
                     _LOGGER.error(f"Failed to get system info: {response.status}")
                     return {}
