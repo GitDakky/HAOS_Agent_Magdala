@@ -103,136 +103,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     except Exception as e:
         _LOGGER.error(f"Failed to initialize Guardian Agent: {e}")
-        # Fallback to basic services
+        # Fallback - just store config without services
         hass.data[DOMAIN][entry.entry_id] = {"config": entry.data}
-        await _register_basic_services(hass)
         return True
 
 
-async def _register_basic_services(hass: HomeAssistant) -> None:
-    """Register basic Guardian Agent services."""
-
-    async def handle_ask_service(call: ServiceCall):
-        """Handle the service call to ask the agent a question."""
-        prompt = call.data.get(ATTR_PROMPT)
-        conversation_id = call.data.get(ATTR_CONVERSATION_ID)
-
-        if not prompt:
-            _LOGGER.error("Service call 'ask' is missing required attribute 'prompt'")
-            return
-
-        # Temporary response while agent is being developed
-        _LOGGER.info(f"Agent received prompt: {prompt}")
-        hass.bus.async_fire(
-            f"{DOMAIN}_response",
-            {
-                "response": "Guardian Agent is initializing. Full functionality coming soon!",
-                "conversation_id": conversation_id
-            }
-        )
-
-    async def handle_guardian_mode_service(call: ServiceCall):
-        """Handle guardian mode changes."""
-        mode = call.data.get(ATTR_MODE)
-        modules = call.data.get(ATTR_MODULES)
-
-        _LOGGER.info(f"Guardian mode service called: {mode}, modules: {modules}")
-        # Placeholder implementation
-
-    async def handle_announce_service(call: ServiceCall):
-        """Handle voice announcements."""
-        message = call.data.get(ATTR_MESSAGE)
-        priority = call.data.get(ATTR_PRIORITY, "low")
-        location = call.data.get(ATTR_LOCATION)
-
-        _LOGGER.info(f"Announce service called: {message}")
-        # Placeholder implementation
-
-    async def handle_learn_pattern_service(call: ServiceCall):
-        """Handle pattern learning."""
-        pattern_type = call.data.get(ATTR_PATTERN_TYPE)
-        pattern_data = call.data.get(ATTR_PATTERN_DATA)
-
-        _LOGGER.info(f"Learn pattern service called: {pattern_type}")
-        # Placeholder implementation
-
-    # Register all services
-    hass.services.async_register(
-        DOMAIN, SERVICE_ASK_AGENT, handle_ask_service, schema=SERVICE_ASK_SCHEMA
-    )
-
-    hass.services.async_register(
-        DOMAIN, SERVICE_GUARDIAN_MODE, handle_guardian_mode_service, schema=SERVICE_GUARDIAN_MODE_SCHEMA
-    )
-
-    hass.services.async_register(
-        DOMAIN, SERVICE_ANNOUNCE, handle_announce_service, schema=SERVICE_ANNOUNCE_SCHEMA
-    )
-
-    hass.services.async_register(
-        DOMAIN, SERVICE_LEARN_PATTERN, handle_learn_pattern_service, schema=SERVICE_LEARN_PATTERN_SCHEMA
-    )
-
-    # Enhanced services for device control and entity access
-    async def handle_control_device_service(call: ServiceCall):
-        """Handle device control service."""
-        entity_id = call.data.get("entity_id")
-        action = call.data.get("action")
-        kwargs = {k: v for k, v in call.data.items() if k not in ["entity_id", "action"]}
-
-        _LOGGER.info(f"Device control service called: {entity_id} -> {action}")
-
-        # Fire event for now (placeholder)
-        hass.bus.async_fire(
-            f"{DOMAIN}_device_control",
-            {
-                "entity_id": entity_id,
-                "action": action,
-                "parameters": kwargs,
-                "timestamp": datetime.now().isoformat()
-            }
-        )
-
-    async def handle_get_entities_service(call: ServiceCall):
-        """Handle get entities service."""
-        area = call.data.get("area")
-        domain = call.data.get("domain")
-
-        _LOGGER.info(f"Get entities service called: area={area}, domain={domain}")
-
-        # Fire event with entity information
-        hass.bus.async_fire(
-            f"{DOMAIN}_entities_info",
-            {
-                "area": area,
-                "domain": domain,
-                "timestamp": datetime.now().isoformat()
-            }
-        )
-
-    # Register enhanced services
-    hass.services.async_register(
-        DOMAIN,
-        "control_device",
-        handle_control_device_service,
-        schema=vol.Schema({
-            vol.Required("entity_id"): cv.entity_id,
-            vol.Required("action"): cv.string,
-            vol.Optional("brightness"): vol.Range(min=0, max=255),
-            vol.Optional("temperature"): vol.Range(min=0, max=50),
-            vol.Optional("hvac_mode"): cv.string,
-        })
-    )
-
-    hass.services.async_register(
-        DOMAIN,
-        "get_entities",
-        handle_get_entities_service,
-        schema=vol.Schema({
-            vol.Optional("area"): cv.string,
-            vol.Optional("domain"): cv.string,
-        })
-    )
+# Placeholder services removed - using real agent implementation only
 
 
 async def _register_services(hass: HomeAssistant, agent: GuardianAgent) -> None:
@@ -250,6 +126,17 @@ async def _register_services(hass: HomeAssistant, agent: GuardianAgent) -> None:
         try:
             response = await agent.ask(prompt, conversation_id)
             _LOGGER.debug(f"Agent response: {response[:100]}...")
+
+            # Fire success response event
+            hass.bus.async_fire(
+                f"{DOMAIN}_response",
+                {
+                    "response": response,
+                    "conversation_id": conversation_id,
+                    "error": False
+                }
+            )
+
         except Exception as e:
             _LOGGER.error(f"Error processing ask service: {e}")
             # Fire error response
