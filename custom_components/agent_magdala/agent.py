@@ -45,6 +45,7 @@ from .const import (
     GUARDIAN_MODULES,
 )
 from .llm_client import LLMClient, LLMError
+from .mcp_client import MCPClient, MCPError
 
 # Simplified imports to avoid dependency issues
 # from .models import (
@@ -123,6 +124,9 @@ class GuardianAgent:
         # LLM client for robust API calls
         self.llm_client = None
 
+        # MCP client for Home Assistant communication
+        self.mcp_client = None
+
     def _create_config(self, data: Dict[str, Any]) -> SimpleConfig:
         """Create guardian configuration from entry data."""
         return SimpleConfig(data)
@@ -144,6 +148,16 @@ class GuardianAgent:
                 LOGGER.info("LLM client initialized successfully")
             else:
                 LOGGER.warning("No OpenRouter API key provided - LLM functionality disabled")
+
+            # Initialize MCP client for enhanced Home Assistant communication
+            try:
+                self.mcp_client = MCPClient(self.hass)
+                if await self.mcp_client.test_connection():
+                    LOGGER.info("MCP client connected to Home Assistant MCP Server")
+                else:
+                    LOGGER.warning("MCP Server not available - using direct Home Assistant API")
+            except Exception as e:
+                LOGGER.warning(f"MCP client initialization failed: {e} - using direct Home Assistant API")
 
             # Update status
             self.status.health_status = "healthy"
@@ -864,6 +878,10 @@ Provide helpful, actionable responses based on the current home status."""
             # Close LLM client
             if self.llm_client:
                 await self.llm_client.close()
+
+            # Close MCP client
+            if self.mcp_client:
+                await self.mcp_client.close()
 
             # Update status
             self.status.health_status = "offline"
