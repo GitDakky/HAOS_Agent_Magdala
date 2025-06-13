@@ -5,7 +5,7 @@ LOGGER: Logger = getLogger(__package__)
 
 NAME = "HAOS Agent Magdala"
 DOMAIN = "agent_magdala"
-VERSION = "0.9.3"
+VERSION = "0.9.4"
 ATTRIBUTION = "AI Guardian Agent using Pydantic AI and Mem0"
 
 # Platforms - now enabled with platform files created
@@ -21,7 +21,7 @@ CONF_TTS_SERVICE = "tts_service"
 
 # Defaults
 DEFAULT_NAME = DOMAIN
-DEFAULT_OPENROUTER_MODEL = "google/gemini-flash-1.5"
+DEFAULT_OPENROUTER_MODEL = "google/gemini-2.5-flash-preview-05-20"
 DEFAULT_GUARDIAN_MODE = True
 DEFAULT_VOICE_ANNOUNCEMENTS = True
 DEFAULT_TTS_SERVICE = "tts.piper"

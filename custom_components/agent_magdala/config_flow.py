@@ -14,7 +14,7 @@ CONF_GUARDIAN_MODE = "guardian_mode"
 CONF_VOICE_ANNOUNCEMENTS = "voice_announcements"
 CONF_TTS_SERVICE = "tts_service"
 
-DEFAULT_OPENROUTER_MODEL = "google/gemini-flash-1.5"
+DEFAULT_OPENROUTER_MODEL = "google/gemini-2.5-flash-preview-05-20"
 DEFAULT_GUARDIAN_MODE = True
 DEFAULT_VOICE_ANNOUNCEMENTS = True
 DEFAULT_TTS_SERVICE = "tts.piper"

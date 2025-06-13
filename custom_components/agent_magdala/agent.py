@@ -69,7 +69,7 @@ class SimpleConfig:
     def __init__(self, data):
         self.openrouter_api_key = data.get(CONF_OPENROUTER_API_KEY)
         self.mem0_api_key = data.get(CONF_MEM0_API_KEY)
-        self.openrouter_model = data.get(CONF_OPENROUTER_MODEL, "google/gemini-flash-1.5")
+        self.openrouter_model = data.get(CONF_OPENROUTER_MODEL, "google/gemini-2.5-flash-preview-05-20")
         self.guardian_mode = data.get(CONF_GUARDIAN_MODE, "active")
         self.voice_announcements = data.get(CONF_VOICE_ANNOUNCEMENTS, True)
         self.tts_service = data.get(CONF_TTS_SERVICE, "tts.piper")
