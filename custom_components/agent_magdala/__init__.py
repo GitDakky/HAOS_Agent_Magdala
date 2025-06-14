@@ -8,6 +8,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers import config_validation as cv
+from homeassistant.util import dt as dt_util
 import voluptuous as vol
 
 from .const import (
@@ -121,11 +122,24 @@ async def _register_services(hass: HomeAssistant, agent: GuardianAgent) -> None:
 
         if not prompt:
             _LOGGER.error("Service call 'ask' is missing required attribute 'prompt'")
-            return
+            return {"error": "Missing prompt"}
+
+        _LOGGER.info(f"Agent received prompt: {prompt}")
+        _LOGGER.debug(f"Agent object: {agent}")
+        _LOGGER.debug(f"Agent status: {getattr(agent, 'status', 'No status')}")
 
         try:
+            # Check if agent is properly initialized
+            if not agent:
+                raise Exception("Agent not initialized")
+
+            if not hasattr(agent, 'ask'):
+                raise Exception("Agent missing ask method")
+
+            _LOGGER.debug("Calling agent.ask()...")
             response = await agent.ask(prompt, conversation_id)
-            _LOGGER.debug(f"Agent response: {response[:100]}...")
+            _LOGGER.info(f"Agent response received: {len(response) if response else 0} characters")
+            _LOGGER.debug(f"Agent response preview: {response[:100]}...")
 
             # Fire success response event
             hass.bus.async_fire(
@@ -133,21 +147,39 @@ async def _register_services(hass: HomeAssistant, agent: GuardianAgent) -> None:
                 {
                     "response": response,
                     "conversation_id": conversation_id,
-                    "error": False
+                    "error": False,
+                    "timestamp": dt_util.utcnow().isoformat()
                 }
             )
 
+            # Return status for service call
+            return {
+                "success": True,
+                "response_length": len(response) if response else 0,
+                "conversation_id": conversation_id
+            }
+
         except Exception as e:
-            _LOGGER.error(f"Error processing ask service: {e}")
+            _LOGGER.error(f"Error processing ask service: {e}", exc_info=True)
+            error_msg = f"Error: {str(e)}"
+
             # Fire error response
             hass.bus.async_fire(
                 f"{DOMAIN}_response",
                 {
-                    "response": f"Error: {str(e)}",
+                    "response": error_msg,
                     "conversation_id": conversation_id,
-                    "error": True
+                    "error": True,
+                    "timestamp": dt_util.utcnow().isoformat()
                 }
             )
+
+            # Return error status for service call
+            return {
+                "success": False,
+                "error": str(e),
+                "conversation_id": conversation_id
+            }
 
     async def handle_guardian_mode_service(call: ServiceCall):
         """Handle guardian mode changes."""

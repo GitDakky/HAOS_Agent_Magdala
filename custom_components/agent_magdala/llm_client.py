@@ -131,27 +131,35 @@ class LLMClient:
     async def simple_completion(self, prompt: str, **kwargs) -> str:
         """
         Simple text completion interface.
-        
+
         Args:
             prompt: Input prompt
             **kwargs: Additional parameters for chat_completion
-            
+
         Returns:
             Generated text response
         """
         messages = [{"role": "user", "content": prompt}]
-        
+
         try:
+            _LOGGER.debug(f"Starting LLM completion for prompt: {prompt[:50]}...")
             response = await self.chat_completion(messages, **kwargs)
-            
+            _LOGGER.debug(f"LLM completion response received: {type(response)}")
+
             if "choices" in response and len(response["choices"]) > 0:
-                return response["choices"][0]["message"]["content"].strip()
+                content = response["choices"][0]["message"]["content"].strip()
+                _LOGGER.debug(f"LLM completion successful: {len(content)} characters")
+                return content
             else:
+                _LOGGER.error(f"No choices in LLM response: {response}")
                 raise LLMError("No choices in response")
-                
+
+        except LLMError:
+            # Re-raise LLMError as-is
+            raise
         except Exception as e:
-            _LOGGER.error(f"Simple completion failed: {type(e).__name__}")
-            raise LLMError(f"Completion failed: {type(e).__name__}")
+            _LOGGER.error(f"Simple completion failed: {type(e).__name__}: {e}", exc_info=True)
+            raise LLMError(f"Completion failed: {type(e).__name__}: {e}")
 
 
 class LLMError(Exception):

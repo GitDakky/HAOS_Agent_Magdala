@@ -393,7 +393,9 @@ Provide helpful, actionable responses based on the current home status."""
             if not self.llm_client:
                 raise LLMError("LLM client not initialized - check OpenRouter API key")
 
+            LOGGER.debug(f"Calling LLM API with {len(messages)} messages")
             response_text = await self._call_llm_api(messages)
+            LOGGER.debug(f"LLM API returned: {len(response_text) if response_text else 0} characters")
 
             # Update conversation context
             context.messages.append({"role": "user", "content": prompt})
